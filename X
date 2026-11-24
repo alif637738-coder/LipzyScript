@@ -1,0 +1,1898 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local RNG = Random.new()
+
+local UI_Name = "LpzyxHub_ThrowFood"
+if CoreGui:FindFirstChild(UI_Name) then
+	CoreGui[UI_Name]:Destroy()
+elseif LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(UI_Name) then
+	LocalPlayer.PlayerGui[UI_Name]:Destroy()
+end
+
+local RainbowSequence = ColorSequence.new({
+	ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 65, 65)),
+	ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 175, 50)),
+	ColorSequenceKeypoint.new(0.33, Color3.fromRGB(90, 255, 110)),
+	ColorSequenceKeypoint.new(0.50, Color3.fromRGB(55, 220, 255)),
+	ColorSequenceKeypoint.new(0.67, Color3.fromRGB(95, 115, 255)),
+	ColorSequenceKeypoint.new(0.83, Color3.fromRGB(215, 75, 255)),
+	ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 65, 65)),
+})
+
+local RainbowGradients = {}
+local function ApplyRainbowGradient(parent, rotationOffset)
+	local grad = Instance.new("UIGradient")
+	grad.Color = RainbowSequence
+	grad.Rotation = rotationOffset or 0
+	grad.Parent = parent
+	table.insert(RainbowGradients, {
+		gradient = grad,
+		offset = rotationOffset or 0,
+	})
+	return grad
+end
+
+local function GetRainbowColorAt(phase)
+	local p = phase % 1
+	if p < 0 then
+		p += 1
+	end
+	local keypoints = RainbowSequence.Keypoints
+	for i = 1, #keypoints - 1 do
+		local k1 = keypoints[i]
+		local k2 = keypoints[i + 1]
+		if p >= k1.Time and p <= k2.Time then
+			local alpha = (k2.Time - k1.Time) > 0 and ((p - k1.Time) / (k2.Time - k1.Time)) or 0
+			return k1.Value:Lerp(k2.Value, alpha)
+		end
+	end
+	return keypoints[1].Value
+end
+
+local function CreateModernToggle(parent, onChanged)
+	local Track = Instance.new("TextButton")
+	Track.Name = "ModernToggleTrack"
+	Track.Size = UDim2.new(0, 56, 0, 28)
+	Track.Position = UDim2.new(1, -68, 0.5, -14)
+	Track.BackgroundColor3 = Color3.fromRGB(42, 42, 54)
+	Track.Text = ""
+	Track.AutoButtonColor = false
+	Track.BorderSizePixel = 0
+	Track.Parent = parent
+
+	local TrackCorner = Instance.new("UICorner")
+	TrackCorner.CornerRadius = UDim.new(1, 0)
+	TrackCorner.Parent = Track
+
+	local TrackStroke = Instance.new("UIStroke")
+	TrackStroke.Color = Color3.fromRGB(95, 95, 115)
+	TrackStroke.Thickness = 1.5
+	TrackStroke.Parent = Track
+
+	local ActiveFill = Instance.new("Frame")
+	ActiveFill.Name = "ActiveFill"
+	ActiveFill.Size = UDim2.new(1, 0, 1, 0)
+	ActiveFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	ActiveFill.BackgroundTransparency = 1
+	ActiveFill.BorderSizePixel = 0
+	ActiveFill.ZIndex = Track.ZIndex + 1
+	ActiveFill.Parent = Track
+
+	local FillCorner = Instance.new("UICorner")
+	FillCorner.CornerRadius = UDim.new(1, 0)
+	FillCorner.Parent = ActiveFill
+
+	local FillGrad = ApplyRainbowGradient(ActiveFill, 0)
+	FillGrad.Enabled = false
+
+	local Knob = Instance.new("Frame")
+	Knob.Name = "Knob"
+	Knob.Size = UDim2.new(0, 22, 0, 22)
+	Knob.Position = UDim2.new(0, 3, 0.5, -11)
+	Knob.BackgroundColor3 = Color3.fromRGB(215, 215, 225)
+	Knob.BorderSizePixel = 0
+	Knob.ZIndex = Track.ZIndex + 2
+	Knob.Parent = Track
+
+	local KnobCorner = Instance.new("UICorner")
+	KnobCorner.CornerRadius = UDim.new(1, 0)
+	KnobCorner.Parent = Knob
+
+	local state = false
+	local function SetVisualState(isOn, instant)
+		state = isOn
+		local targetPos = isOn and UDim2.new(1, -25, 0.5, -11) or UDim2.new(0, 3, 0.5, -11)
+		local targetKnobColor = isOn and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(185, 185, 200)
+		local targetTransp = isOn and 0 or 1
+		local targetStrokeColor = isOn and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(95, 95, 115)
+
+		FillGrad.Enabled = isOn
+
+		if instant then
+			Knob.Position = targetPos
+			Knob.BackgroundColor3 = targetKnobColor
+			ActiveFill.BackgroundTransparency = targetTransp
+			TrackStroke.Color = targetStrokeColor
+		else
+			local info = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			TweenService:Create(Knob, info, { Position = targetPos, BackgroundColor3 = targetKnobColor }):Play()
+			TweenService:Create(ActiveFill, info, { BackgroundTransparency = targetTransp }):Play()
+			TweenService:Create(TrackStroke, info, { Color = targetStrokeColor }):Play()
+		end
+	end
+
+	Track.MouseButton1Click:Connect(function()
+		state = not state
+		SetVisualState(state, false)
+		if onChanged then
+			onChanged(state)
+		end
+	end)
+
+	return {
+		Button = Track,
+		SetState = function(val)
+			SetVisualState(val, false)
+		end,
+		GetState = function()
+			return state
+		end,
+	}
+end
+
+local EspBoxEnabled = false
+local EspLineEnabled = false
+local EspSkeletonEnabled = false
+local TitleOwnerEnabled = false
+
+local HasDrawingApi = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
+local PlayerEspDrawings = {}
+local OwnerBillboardGui = nil
+local OwnerTitleLabel = nil
+local OwnerShadowLabel = nil
+local OwnerShadow2Label = nil
+
+local function ClearPlayerEsp(plr)
+	local pack = PlayerEspDrawings[plr]
+	if not pack then
+		return
+	end
+	if pack.box then
+		pcall(function()
+			pack.box:Remove()
+		end)
+	end
+	if pack.line then
+		pcall(function()
+			pack.line:Remove()
+		end)
+	end
+	if pack.bones then
+		for _, b in ipairs(pack.bones) do
+			pcall(function()
+				b:Remove()
+			end)
+		end
+	end
+	PlayerEspDrawings[plr] = nil
+end
+
+local function ClearAllEsp()
+	for plr in pairs(PlayerEspDrawings) do
+		ClearPlayerEsp(plr)
+	end
+end
+
+local function DestroyOwnerTitleGui()
+	if OwnerBillboardGui then
+		pcall(function()
+			OwnerBillboardGui:Destroy()
+		end)
+	end
+	OwnerBillboardGui = nil
+	OwnerTitleLabel = nil
+	OwnerShadowLabel = nil
+	OwnerShadow2Label = nil
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = UI_Name
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local okParent = pcall(function()
+	ScreenGui.Parent = CoreGui
+end)
+if not okParent then
+	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+ApplyRainbowGradient(MainStroke, 0)
+
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundColor3 = Color3.fromRGB(22, 20, 28)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 10)
+TopCorner.Parent = TopBar
+
+local TopFix = Instance.new("Frame")
+TopFix.Size = UDim2.new(1, 0, 0, 10)
+TopFix.Position = UDim2.new(0, 0, 1, -10)
+TopFix.BackgroundColor3 = Color3.fromRGB(22, 20, 28)
+TopFix.BorderSizePixel = 0
+TopFix.Parent = TopBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "Title"
+TitleLabel.Size = UDim2.new(0, 200, 1, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Lpzyx Hub"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 18
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TopBar
+ApplyRainbowGradient(TitleLabel, 25)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(35, 24, 34)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 100)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+	ClearAllEsp()
+	DestroyOwnerTitleGui()
+	ScreenGui:Destroy()
+end)
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Name = "TabContainer"
+TabContainer.Size = UDim2.new(0, 120, 1, -45)
+TabContainer.Position = UDim2.new(0, 5, 0, 42)
+TabContainer.BackgroundColor3 = Color3.fromRGB(18, 17, 23)
+TabContainer.BorderSizePixel = 0
+TabContainer.Parent = MainFrame
+
+local TabCorner = Instance.new("UICorner")
+TabCorner.CornerRadius = UDim.new(0, 8)
+TabCorner.Parent = TabContainer
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.Padding = UDim.new(0, 5)
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Parent = TabContainer
+
+local TabPadding = Instance.new("UIPadding")
+TabPadding.PaddingTop = UDim.new(0, 6)
+TabPadding.Parent = TabContainer
+
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Name = "ContentContainer"
+ContentContainer.Size = UDim2.new(1, -135, 1, -45)
+ContentContainer.Position = UDim2.new(0, 130, 0, 42)
+ContentContainer.BackgroundColor3 = Color3.fromRGB(20, 19, 26)
+ContentContainer.BorderSizePixel = 0
+ContentContainer.Parent = MainFrame
+
+local ContentCorner = Instance.new("UICorner")
+ContentCorner.CornerRadius = UDim.new(0, 8)
+ContentCorner.Parent = ContentContainer
+
+local Tabs = {"HOME", "FRAM", "VISUAL", "PLAYER", "MISCH"}
+local TabFrames = {}
+local TabButtons = {}
+local TabGradients = {}
+
+for i, tabName in ipairs(Tabs) do
+	local isFirst = (i == 1)
+	local TabBtn = Instance.new("TextButton")
+	TabBtn.Name = tabName .. "_Btn"
+	TabBtn.Size = UDim2.new(0, 106, 0, 36)
+	TabBtn.BackgroundColor3 = isFirst and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 26, 36)
+	TabBtn.Text = tabName
+	TabBtn.TextColor3 = isFirst and Color3.fromRGB(15, 15, 20) or Color3.fromRGB(235, 235, 245)
+	TabBtn.Font = Enum.Font.GothamBold
+	TabBtn.TextSize = 12
+	TabBtn.Parent = TabContainer
+
+	local BtnCorner = Instance.new("UICorner")
+	BtnCorner.CornerRadius = UDim.new(0, 6)
+	BtnCorner.Parent = TabBtn
+
+	local BtnGrad = ApplyRainbowGradient(TabBtn, i * 35)
+	BtnGrad.Enabled = isFirst
+	TabGradients[tabName] = BtnGrad
+
+	local PageFrame = Instance.new("Frame")
+	PageFrame.Name = tabName .. "_Page"
+	PageFrame.Size = UDim2.new(1, 0, 1, 0)
+	PageFrame.BackgroundTransparency = 1
+	PageFrame.Visible = isFirst
+	PageFrame.Parent = ContentContainer
+
+	TabButtons[tabName] = TabBtn
+	TabFrames[tabName] = PageFrame
+
+	TabBtn.MouseButton1Click:Connect(function()
+		for name, frame in pairs(TabFrames) do
+			local active = (name == tabName)
+			frame.Visible = active
+			TabGradients[name].Enabled = active
+			TabButtons[name].BackgroundColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(28, 26, 36)
+			TabButtons[name].TextColor3 = active and Color3.fromRGB(15, 15, 20) or Color3.fromRGB(235, 235, 245)
+		end
+	end)
+end
+
+local HomePage = TabFrames["HOME"]
+
+local UnifiedProfileCard = Instance.new("Frame")
+UnifiedProfileCard.Name = "UnifiedProfileCard"
+UnifiedProfileCard.Size = UDim2.new(1, -16, 1, -16)
+UnifiedProfileCard.Position = UDim2.new(0, 8, 0, 8)
+UnifiedProfileCard.BackgroundColor3 = Color3.fromRGB(25, 23, 33)
+UnifiedProfileCard.BorderSizePixel = 0
+UnifiedProfileCard.Parent = HomePage
+
+local UnifiedCorner = Instance.new("UICorner")
+UnifiedCorner.CornerRadius = UDim.new(0, 10)
+UnifiedCorner.Parent = UnifiedProfileCard
+
+local UnifiedStroke = Instance.new("UIStroke")
+UnifiedStroke.Color = Color3.fromRGB(255, 255, 255)
+UnifiedStroke.Thickness = 1.4
+UnifiedStroke.Parent = UnifiedProfileCard
+ApplyRainbowGradient(UnifiedStroke, 20)
+
+local TopStrip = Instance.new("Frame")
+TopStrip.Name = "TopStrip"
+TopStrip.Size = UDim2.new(1, 0, 0, 4)
+TopStrip.Position = UDim2.new(0, 0, 0, 0)
+TopStrip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TopStrip.BorderSizePixel = 0
+TopStrip.Parent = UnifiedProfileCard
+ApplyRainbowGradient(TopStrip, 50)
+
+local AvatarRing = Instance.new("Frame")
+AvatarRing.Name = "AvatarRing"
+AvatarRing.Size = UDim2.new(0, 56, 0, 56)
+AvatarRing.Position = UDim2.new(0, 14, 0, 15)
+AvatarRing.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+AvatarRing.BorderSizePixel = 0
+AvatarRing.Parent = UnifiedProfileCard
+
+local AvatarRingCorner = Instance.new("UICorner")
+AvatarRingCorner.CornerRadius = UDim.new(1, 0)
+AvatarRingCorner.Parent = AvatarRing
+ApplyRainbowGradient(AvatarRing, 85)
+
+local AvatarImg = Instance.new("ImageLabel")
+AvatarImg.Name = "AvatarImg"
+AvatarImg.Size = UDim2.new(1, -4, 1, -4)
+AvatarImg.Position = UDim2.new(0, 2, 0, 2)
+AvatarImg.BackgroundColor3 = Color3.fromRGB(16, 15, 21)
+AvatarImg.BorderSizePixel = 0
+AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=150&h=150"
+AvatarImg.Parent = AvatarRing
+
+local AvatarCorner = Instance.new("UICorner")
+AvatarCorner.CornerRadius = UDim.new(1, 0)
+AvatarCorner.Parent = AvatarImg
+
+local OnlinePill = Instance.new("Frame")
+OnlinePill.Name = "OnlinePill"
+OnlinePill.Size = UDim2.new(0, 54, 0, 17)
+OnlinePill.Position = UDim2.new(1, -68, 0, 15)
+OnlinePill.BackgroundColor3 = Color3.fromRGB(20, 38, 30)
+OnlinePill.BorderSizePixel = 0
+OnlinePill.Parent = UnifiedProfileCard
+
+local OnlinePillCorner = Instance.new("UICorner")
+OnlinePillCorner.CornerRadius = UDim.new(1, 0)
+OnlinePillCorner.Parent = OnlinePill
+
+local OnlinePillStroke = Instance.new("UIStroke")
+OnlinePillStroke.Color = Color3.fromRGB(80, 240, 140)
+OnlinePillStroke.Thickness = 1
+OnlinePillStroke.Parent = OnlinePill
+
+local OnlineDot = Instance.new("Frame")
+OnlineDot.Size = UDim2.new(0, 5, 0, 5)
+OnlineDot.Position = UDim2.new(0, 6, 0.5, -2.5)
+OnlineDot.BackgroundColor3 = Color3.fromRGB(85, 255, 145)
+OnlineDot.BorderSizePixel = 0
+OnlineDot.Parent = OnlinePill
+
+local OnlineDotCorner = Instance.new("UICorner")
+OnlineDotCorner.CornerRadius = UDim.new(1, 0)
+OnlineDotCorner.Parent = OnlineDot
+
+local OnlineLbl = Instance.new("TextLabel")
+OnlineLbl.Size = UDim2.new(1, -14, 1, 0)
+OnlineLbl.Position = UDim2.new(0, 13, 0, 0)
+OnlineLbl.BackgroundTransparency = 1
+OnlineLbl.Text = "ONLINE"
+OnlineLbl.TextColor3 = Color3.fromRGB(125, 255, 170)
+OnlineLbl.Font = Enum.Font.GothamBold
+OnlineLbl.TextSize = 8
+OnlineLbl.TextXAlignment = Enum.TextXAlignment.Left
+OnlineLbl.Parent = OnlinePill
+
+local HeaderTag = Instance.new("TextLabel")
+HeaderTag.Name = "HeaderTag"
+HeaderTag.Size = UDim2.new(1, -148, 0, 13)
+HeaderTag.Position = UDim2.new(0, 78, 0, 15)
+HeaderTag.BackgroundTransparency = 1
+HeaderTag.Text = "PROFILE"
+HeaderTag.TextColor3 = Color3.fromRGB(145, 145, 168)
+HeaderTag.Font = Enum.Font.GothamBold
+HeaderTag.TextSize = 9
+HeaderTag.TextXAlignment = Enum.TextXAlignment.Left
+HeaderTag.Parent = UnifiedProfileCard
+
+local UsernameTitle = Instance.new("TextLabel")
+UsernameTitle.Name = "UsernameTitle"
+UsernameTitle.Size = UDim2.new(1, -92, 0, 22)
+UsernameTitle.Position = UDim2.new(0, 78, 0, 28)
+UsernameTitle.BackgroundTransparency = 1
+UsernameTitle.Text = "@" .. tostring(LocalPlayer.Name)
+UsernameTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameTitle.Font = Enum.Font.GothamBold
+UsernameTitle.TextSize = 15
+UsernameTitle.TextXAlignment = Enum.TextXAlignment.Left
+UsernameTitle.TextTruncate = Enum.TextTruncate.AtEnd
+UsernameTitle.Parent = UnifiedProfileCard
+ApplyRainbowGradient(UsernameTitle, 15)
+
+local DisplaySub = Instance.new("TextLabel")
+DisplaySub.Name = "DisplaySub"
+DisplaySub.Size = UDim2.new(1, -92, 0, 16)
+DisplaySub.Position = UDim2.new(0, 78, 0, 50)
+DisplaySub.BackgroundTransparency = 1
+DisplaySub.Text = tostring(LocalPlayer.DisplayName) .. " • #" .. tostring(LocalPlayer.UserId)
+DisplaySub.TextColor3 = Color3.fromRGB(180, 180, 200)
+DisplaySub.Font = Enum.Font.GothamMedium
+DisplaySub.TextSize = 10
+DisplaySub.TextXAlignment = Enum.TextXAlignment.Left
+DisplaySub.TextTruncate = Enum.TextTruncate.AtEnd
+DisplaySub.Parent = UnifiedProfileCard
+
+local DividerLine = Instance.new("Frame")
+DividerLine.Name = "DividerLine"
+DividerLine.Size = UDim2.new(1, -28, 0, 1)
+DividerLine.Position = UDim2.new(0, 14, 0, 81)
+DividerLine.BackgroundColor3 = Color3.fromRGB(46, 43, 60)
+DividerLine.BorderSizePixel = 0
+DividerLine.Parent = UnifiedProfileCard
+
+local accountAgeDays = math.max(0, tonumber(LocalPlayer.AccountAge) or 0)
+local createdUnix = os.time() - (accountAgeDays * 86400)
+local createdDateStr = os.date("%d %b %Y", createdUnix) .. " (" .. tostring(accountAgeDays) .. "d)"
+
+local DetailsContainer = Instance.new("Frame")
+DetailsContainer.Name = "DetailsContainer"
+DetailsContainer.Size = UDim2.new(1, -28, 0, 108)
+DetailsContainer.Position = UDim2.new(0, 14, 0, 90)
+DetailsContainer.BackgroundColor3 = Color3.fromRGB(19, 17, 26)
+DetailsContainer.BorderSizePixel = 0
+DetailsContainer.Parent = UnifiedProfileCard
+
+local DetailsCorner = Instance.new("UICorner")
+DetailsCorner.CornerRadius = UDim.new(0, 8)
+DetailsCorner.Parent = DetailsContainer
+
+local DetailsStroke = Instance.new("UIStroke")
+DetailsStroke.Color = Color3.fromRGB(255, 255, 255)
+DetailsStroke.Thickness = 1
+DetailsStroke.Parent = DetailsContainer
+ApplyRainbowGradient(DetailsStroke, 120)
+
+local function AddMergedDetailRow(yPos, labelStr, valueStr, accentColor, showSep)
+	local Row = Instance.new("Frame")
+	Row.Size = UDim2.new(1, 0, 0, 36)
+	Row.Position = UDim2.new(0, 0, 0, yPos)
+	Row.BackgroundTransparency = 1
+	Row.Parent = DetailsContainer
+
+	local Dot = Instance.new("Frame")
+	Dot.Size = UDim2.new(0, 6, 0, 6)
+	Dot.Position = UDim2.new(0, 10, 0.5, -3)
+	Dot.BackgroundColor3 = accentColor
+	Dot.BorderSizePixel = 0
+	Dot.Parent = Row
+
+	local DotCorner = Instance.new("UICorner")
+	DotCorner.CornerRadius = UDim.new(1, 0)
+	DotCorner.Parent = Dot
+
+	local Lbl = Instance.new("TextLabel")
+	Lbl.Size = UDim2.new(0, 92, 1, 0)
+	Lbl.Position = UDim2.new(0, 22, 0, 0)
+	Lbl.BackgroundTransparency = 1
+	Lbl.Text = labelStr
+	Lbl.TextColor3 = Color3.fromRGB(160, 160, 180)
+	Lbl.Font = Enum.Font.GothamSemibold
+	Lbl.TextSize = 11
+	Lbl.TextXAlignment = Enum.TextXAlignment.Left
+	Lbl.Parent = Row
+
+	local Val = Instance.new("TextLabel")
+	Val.Size = UDim2.new(1, -124, 1, 0)
+	Val.Position = UDim2.new(0, 114, 0, 0)
+	Val.BackgroundTransparency = 1
+	Val.Text = valueStr
+	Val.TextColor3 = Color3.fromRGB(245, 245, 252)
+	Val.Font = Enum.Font.GothamBold
+	Val.TextSize = 11
+	Val.TextXAlignment = Enum.TextXAlignment.Right
+	Val.TextTruncate = Enum.TextTruncate.AtEnd
+	Val.Parent = Row
+
+	if showSep then
+		local Sep = Instance.new("Frame")
+		Sep.Size = UDim2.new(1, -20, 0, 1)
+		Sep.Position = UDim2.new(0, 10, 1, -1)
+		Sep.BackgroundColor3 = Color3.fromRGB(34, 31, 45)
+		Sep.BorderSizePixel = 0
+		Sep.Parent = Row
+	end
+
+	return Val
+end
+
+AddMergedDetailRow(0, "Username", tostring(LocalPlayer.Name), Color3.fromRGB(75, 225, 255), true)
+AddMergedDetailRow(36, "Buat Akun", createdDateStr, Color3.fromRGB(255, 180, 70), true)
+local DeviceClockVal = AddMergedDetailRow(72, "Calendar/Clock", os.date("%H:%M:%S • %d/%m/%Y"), Color3.fromRGB(220, 95, 255), false)
+
+local SessionStart = os.clock()
+local ProfileFooterLbl = Instance.new("TextLabel")
+ProfileFooterLbl.Name = "ProfileFooterLbl"
+ProfileFooterLbl.Size = UDim2.new(1, -28, 0, 15)
+ProfileFooterLbl.Position = UDim2.new(0, 14, 1, -20)
+ProfileFooterLbl.BackgroundTransparency = 1
+ProfileFooterLbl.Text = "LPZYX HUB  •  00:00"
+ProfileFooterLbl.TextColor3 = Color3.fromRGB(130, 130, 150)
+ProfileFooterLbl.Font = Enum.Font.GothamBold
+ProfileFooterLbl.TextSize = 9
+ProfileFooterLbl.TextXAlignment = Enum.TextXAlignment.Center
+ProfileFooterLbl.Parent = UnifiedProfileCard
+
+task.spawn(function()
+	while ScreenGui and ScreenGui.Parent do
+		DeviceClockVal.Text = os.date("%H:%M:%S • %d/%m/%Y")
+		local elapsed = math.max(0, math.floor(os.clock() - SessionStart))
+		local mins = math.floor(elapsed / 60)
+		local secs = elapsed % 60
+		ProfileFooterLbl.Text = string.format("LPZYX HUB  •  %02d:%02d", mins, secs)
+		task.wait(1)
+	end
+end)
+
+local FramPage = TabFrames["FRAM"]
+
+local ToggleHolder = Instance.new("Frame")
+ToggleHolder.Size = UDim2.new(1, -20, 0, 45)
+ToggleHolder.Position = UDim2.new(0, 10, 0, 12)
+ToggleHolder.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
+ToggleHolder.BorderSizePixel = 0
+ToggleHolder.Parent = FramPage
+
+local HolderCorner = Instance.new("UICorner")
+HolderCorner.CornerRadius = UDim.new(0, 8)
+HolderCorner.Parent = ToggleHolder
+
+local HolderStroke = Instance.new("UIStroke")
+HolderStroke.Color = Color3.fromRGB(255, 255, 255)
+HolderStroke.Thickness = 1.2
+HolderStroke.Parent = ToggleHolder
+ApplyRainbowGradient(HolderStroke, 30)
+
+local FeatureLabel = Instance.new("TextLabel")
+FeatureLabel.Size = UDim2.new(0, 190, 1, 0)
+FeatureLabel.Position = UDim2.new(0, 15, 0, 0)
+FeatureLabel.BackgroundTransparency = 1
+FeatureLabel.Text = "Auto Throw"
+FeatureLabel.TextColor3 = Color3.fromRGB(240, 240, 248)
+FeatureLabel.Font = Enum.Font.GothamBold
+FeatureLabel.TextSize = 15
+FeatureLabel.TextXAlignment = Enum.TextXAlignment.Left
+FeatureLabel.Parent = ToggleHolder
+
+local PullUp2xHolder = Instance.new("Frame")
+PullUp2xHolder.Name = "Auto2xPullUpHolder"
+PullUp2xHolder.Size = UDim2.new(1, -20, 0, 45)
+PullUp2xHolder.Position = UDim2.new(0, 10, 0, 65)
+PullUp2xHolder.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
+PullUp2xHolder.BorderSizePixel = 0
+PullUp2xHolder.Parent = FramPage
+
+local PullUp2xCorner = Instance.new("UICorner")
+PullUp2xCorner.CornerRadius = UDim.new(0, 8)
+PullUp2xCorner.Parent = PullUp2xHolder
+
+local PullUp2xStroke = Instance.new("UIStroke")
+PullUp2xStroke.Color = Color3.fromRGB(255, 255, 255)
+PullUp2xStroke.Thickness = 1.2
+PullUp2xStroke.Parent = PullUp2xHolder
+ApplyRainbowGradient(PullUp2xStroke, 90)
+
+local PullUp2xLabel = Instance.new("TextLabel")
+PullUp2xLabel.Name = "Auto2xPullUpLabel"
+PullUp2xLabel.Size = UDim2.new(0, 200, 1, 0)
+PullUp2xLabel.Position = UDim2.new(0, 15, 0, 0)
+PullUp2xLabel.BackgroundTransparency = 1
+PullUp2xLabel.Text = "AUTO 2X PULL-UP"
+PullUp2xLabel.TextColor3 = Color3.fromRGB(240, 240, 248)
+PullUp2xLabel.Font = Enum.Font.GothamBold
+PullUp2xLabel.TextSize = 14
+PullUp2xLabel.TextXAlignment = Enum.TextXAlignment.Left
+PullUp2xLabel.Parent = PullUp2xHolder
+
+local VisualPage = TabFrames["VISUAL"]
+
+local VisualScroll = Instance.new("ScrollingFrame")
+VisualScroll.Name = "VisualScroll"
+VisualScroll.Size = UDim2.new(1, -12, 1, -12)
+VisualScroll.Position = UDim2.new(0, 6, 0, 6)
+VisualScroll.BackgroundTransparency = 1
+VisualScroll.BorderSizePixel = 0
+VisualScroll.ScrollBarThickness = 4
+VisualScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 130, 180)
+VisualScroll.CanvasSize = UDim2.new(0, 0, 0, 224)
+VisualScroll.Parent = VisualPage
+
+local VisualLayout = Instance.new("UIListLayout")
+VisualLayout.Padding = UDim.new(0, 8)
+VisualLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+VisualLayout.SortOrder = Enum.SortOrder.LayoutOrder
+VisualLayout.Parent = VisualScroll
+
+local VisualPad = Instance.new("UIPadding")
+VisualPad.PaddingTop = UDim.new(0, 4)
+VisualPad.PaddingBottom = UDim.new(0, 4)
+VisualPad.Parent = VisualScroll
+
+local function CreateVisualRow(titleText, rotOffset, onToggle)
+	local Row = Instance.new("Frame")
+	Row.Name = titleText:gsub("%s+", "_") .. "_Row"
+	Row.Size = UDim2.new(1, -12, 0, 44)
+	Row.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
+	Row.BorderSizePixel = 0
+	Row.Parent = VisualScroll
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0, 8)
+	Corner.Parent = Row
+
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Color = Color3.fromRGB(255, 255, 255)
+	Stroke.Thickness = 1.2
+	Stroke.Parent = Row
+	ApplyRainbowGradient(Stroke, rotOffset)
+
+	local Lbl = Instance.new("TextLabel")
+	Lbl.Size = UDim2.new(1, -85, 1, 0)
+	Lbl.Position = UDim2.new(0, 14, 0, 0)
+	Lbl.BackgroundTransparency = 1
+	Lbl.Text = titleText
+	Lbl.TextColor3 = Color3.fromRGB(240, 240, 248)
+	Lbl.Font = Enum.Font.GothamBold
+	Lbl.TextSize = 14
+	Lbl.TextXAlignment = Enum.TextXAlignment.Left
+	Lbl.Parent = Row
+
+	local toggleObj = CreateModernToggle(Row, onToggle)
+	return Row, toggleObj
+end
+
+local function EnsureOwnerTitleGui(char)
+	if not TitleOwnerEnabled then
+		return
+	end
+	local anchorPart = char and (char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart"))
+	if not anchorPart then
+		return
+	end
+
+	if not OwnerBillboardGui or OwnerBillboardGui.Adornee ~= anchorPart then
+		DestroyOwnerTitleGui()
+
+		local bGui = Instance.new("BillboardGui")
+		bGui.Name = "LpzyxHub_OwnerTitleGui"
+		bGui.Adornee = anchorPart
+		bGui.AlwaysOnTop = true
+		bGui.MaxDistance = math.huge
+		bGui.StudsOffsetWorldSpace = Vector3.new(0, 2.75, 0)
+		bGui.Size = UDim2.fromOffset(180, 44)
+
+		local okGuiParent = pcall(function()
+			bGui.Parent = CoreGui
+		end)
+		if not okGuiParent then
+			bGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+		end
+
+		local s2 = Instance.new("TextLabel")
+		s2.Name = "Depth3D"
+		s2.Size = UDim2.fromScale(1, 1)
+		s2.Position = UDim2.fromOffset(3, 4)
+		s2.Rotation = 0
+		s2.BackgroundTransparency = 1
+		s2.Text = "OWNER"
+		s2.TextColor3 = Color3.fromRGB(10, 10, 16)
+		s2.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		s2.TextStrokeTransparency = 0
+		s2.Font = Enum.Font.GothamBlack
+		s2.TextScaled = false
+		s2.TextSize = 26
+		s2.Parent = bGui
+
+		local s1 = Instance.new("TextLabel")
+		s1.Name = "Mid3D"
+		s1.Size = UDim2.fromScale(1, 1)
+		s1.Position = UDim2.fromOffset(1.5, 2)
+		s1.Rotation = 0
+		s1.BackgroundTransparency = 1
+		s1.Text = "OWNER"
+		s1.TextColor3 = Color3.fromRGB(35, 35, 48)
+		s1.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		s1.TextStrokeTransparency = 0
+		s1.Font = Enum.Font.GothamBlack
+		s1.TextScaled = false
+		s1.TextSize = 26
+		s1.Parent = bGui
+
+		local mainLbl = Instance.new("TextLabel")
+		mainLbl.Name = "OwnerText"
+		mainLbl.Size = UDim2.fromScale(1, 1)
+		mainLbl.Position = UDim2.fromOffset(0, 0)
+		mainLbl.Rotation = 0
+		mainLbl.BackgroundTransparency = 1
+		mainLbl.Text = "OWNER"
+		mainLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+		mainLbl.TextStrokeColor3 = Color3.fromRGB(18, 18, 24)
+		mainLbl.TextStrokeTransparency = 0
+		mainLbl.Font = Enum.Font.GothamBlack
+		mainLbl.TextScaled = false
+		mainLbl.TextSize = 26
+		mainLbl.Parent = bGui
+		ApplyRainbowGradient(mainLbl, 0)
+
+		OwnerBillboardGui = bGui
+		OwnerTitleLabel = mainLbl
+		OwnerShadowLabel = s1
+		OwnerShadow2Label = s2
+	end
+
+	local cam = workspace.CurrentCamera
+	if cam and OwnerBillboardGui then
+		local dist = math.max(4, (cam.CFrame.Position - anchorPart.Position).Magnitude)
+		local scaleFactor = math.clamp(16 / dist, 0.55, 1.15)
+		local w = math.floor(170 * scaleFactor)
+		local h = math.floor(42 * scaleFactor)
+		local fSize = math.clamp(math.floor(25 * scaleFactor), 15, 28)
+
+		local extraHeight = (anchorPart.Name == "Head") and 2.55 or 3.85
+		OwnerBillboardGui.Size = UDim2.fromOffset(w, h)
+		OwnerBillboardGui.StudsOffsetWorldSpace = Vector3.new(0, extraHeight + (dist * 0.015), 0)
+		if OwnerTitleLabel then
+			OwnerTitleLabel.Rotation = 0
+			OwnerTitleLabel.TextSize = fSize
+		end
+		if OwnerShadowLabel then
+			OwnerShadowLabel.Rotation = 0
+			OwnerShadowLabel.TextSize = fSize
+		end
+		if OwnerShadow2Label then
+			OwnerShadow2Label.Rotation = 0
+			OwnerShadow2Label.TextSize = fSize
+		end
+	end
+end
+
+local SKELETON_PAIRS_R15 = {
+	{ "Head", "UpperTorso" },
+	{ "UpperTorso", "LowerTorso" },
+	{ "UpperTorso", "LeftUpperArm" },
+	{ "LeftUpperArm", "LeftLowerArm" },
+	{ "LeftLowerArm", "LeftHand" },
+	{ "UpperTorso", "RightUpperArm" },
+	{ "RightUpperArm", "RightLowerArm" },
+	{ "RightLowerArm", "RightHand" },
+	{ "LowerTorso", "LeftUpperLeg" },
+	{ "LeftUpperLeg", "LeftLowerLeg" },
+	{ "LeftLowerLeg", "LeftFoot" },
+	{ "LowerTorso", "RightUpperLeg" },
+	{ "RightUpperLeg", "RightLowerLeg" },
+	{ "RightLowerLeg", "RightFoot" },
+}
+
+local SKELETON_PAIRS_R6 = {
+	{ "Head", "Torso" },
+	{ "Torso", "Left Arm" },
+	{ "Torso", "Right Arm" },
+	{ "Torso", "Left Leg" },
+	{ "Torso", "Right Leg" },
+}
+
+local BOX_SMOOTH_ALPHA = 0.45
+
+local function GetCharacterBounds3D(char)
+	local okBox, cf, size = pcall(function()
+		return char:GetBoundingBox()
+	end)
+
+	if okBox and cf and size and size.Magnitude > 0.1 then
+		local halfH = math.clamp(size.Y * 0.5, 1.4, 5.5)
+		local center = cf.Position
+		local topWorld = Vector3.new(center.X, center.Y + halfH, center.Z)
+		local bottomWorld = Vector3.new(center.X, center.Y - halfH, center.Z)
+		return center, topWorld, bottomWorld, halfH * 2
+	end
+
+	local fallbackPart = char:FindFirstChild("HumanoidRootPart")
+		or char:FindFirstChild("UpperTorso")
+		or char:FindFirstChild("Torso")
+		or char:FindFirstChild("Head")
+		or char:FindFirstChildWhichIsA("BasePart")
+
+	if not fallbackPart then
+		return nil, nil, nil, nil
+	end
+
+	local pos = fallbackPart.Position
+	local topWorld = pos + Vector3.new(0, 2.75, 0)
+	local bottomWorld = pos - Vector3.new(0, 3.05, 0)
+	return pos, topWorld, bottomWorld, 5.8
+end
+
+local function ComputeCharacterBoxScreenRect(char, cam)
+	local centerWorld, topWorld, bottomWorld, worldHeight = GetCharacterBounds3D(char)
+	if not centerWorld then
+		return nil
+	end
+
+	local topScreen, topVis = cam:WorldToViewportPoint(topWorld)
+	local botScreen, botVis = cam:WorldToViewportPoint(bottomWorld)
+	local ctrScreen, ctrVis = cam:WorldToViewportPoint(centerWorld)
+
+	if ctrScreen.Z <= 0.05 and not topVis and not botVis and not ctrVis then
+		return nil
+	end
+
+	local boxHeight
+	if topScreen.Z > 0.05 and botScreen.Z > 0.05 then
+		boxHeight = math.abs(botScreen.Y - topScreen.Y)
+	else
+		local dist = math.max(1, ctrScreen.Z > 0.05 and ctrScreen.Z or (cam.CFrame.Position - centerWorld).Magnitude)
+		local fovRad = math.rad(cam.FieldOfView)
+		boxHeight = (worldHeight / (2 * dist * math.tan(fovRad * 0.5))) * cam.ViewportSize.Y
+	end
+
+	boxHeight = math.clamp(boxHeight, 16, 460)
+	local boxWidth = math.clamp(boxHeight * 0.42, 10, 220)
+
+	local centerX = (ctrScreen.Z > 0.05) and ctrScreen.X or ((topScreen.X + botScreen.X) * 0.5)
+	local centerY = (topScreen.Z > 0.05 and botScreen.Z > 0.05) and ((topScreen.Y + botScreen.Y) * 0.5) or ctrScreen.Y
+
+	return centerX - (boxWidth * 0.5), centerY - (boxHeight * 0.5), boxWidth, boxHeight
+end
+
+local function GetOrCreatePlayerEsp(plr)
+	if not HasDrawingApi then
+		return nil
+	end
+	local pack = PlayerEspDrawings[plr]
+	if pack then
+		return pack
+	end
+
+	local box = Drawing.new("Square")
+	box.Visible = false
+	box.Filled = false
+	box.Thickness = 1.8
+	box.Transparency = 1
+
+	local line = Drawing.new("Line")
+	line.Visible = false
+	line.Thickness = 1.5
+	line.Transparency = 1
+
+	local bones = {}
+	for _ = 1, #SKELETON_PAIRS_R15 do
+		local bLine = Drawing.new("Line")
+		bLine.Visible = false
+		bLine.Color = Color3.fromRGB(255, 255, 255)
+		bLine.Thickness = 1.5
+		bLine.Transparency = 1
+		table.insert(bones, bLine)
+	end
+
+	pack = {
+		box = box,
+		line = line,
+		bones = bones,
+		smoothRect = nil,
+	}
+	PlayerEspDrawings[plr] = pack
+	return pack
+end
+
+local function HidePlayerEspPack(pack)
+	if not pack then
+		return
+	end
+	pack.smoothRect = nil
+	if pack.box then
+		pack.box.Visible = false
+	end
+	if pack.line then
+		pack.line.Visible = false
+	end
+	if pack.bones then
+		for _, b in ipairs(pack.bones) do
+			b.Visible = false
+		end
+	end
+end
+
+local function UpdateVisualEspFrame(t)
+	if not HasDrawingApi then
+		return
+	end
+	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
+		ClearAllEsp()
+		return
+	end
+
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+
+	local viewSize = cam.ViewportSize
+	local lineOrigin = Vector2.new(viewSize.X * 0.5, viewSize.Y)
+
+	for plr in pairs(PlayerEspDrawings) do
+		if plr.Parent ~= Players or plr == LocalPlayer then
+			ClearPlayerEsp(plr)
+		end
+	end
+
+	for idx, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			local char = plr.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+			local pack = GetOrCreatePlayerEsp(plr)
+			if not char or char.Parent ~= workspace or (hum and hum.Health <= 0) then
+				HidePlayerEspPack(pack)
+			else
+				local centerWorld, _, bottomWorld = GetCharacterBounds3D(char)
+				if not centerWorld then
+					HidePlayerEspPack(pack)
+				else
+					local ctrScreen, ctrVis = cam:WorldToViewportPoint(centerWorld)
+					if ctrScreen.Z <= 0.05 and not ctrVis then
+						HidePlayerEspPack(pack)
+					else
+						local rainbowCol = GetRainbowColorAt((t * 0.45) + (idx * 0.14))
+
+						if EspBoxEnabled and pack.box then
+							local rx, ry, rw, rh = ComputeCharacterBoxScreenRect(char, cam)
+							if not rx then
+								pack.smoothRect = nil
+								pack.box.Visible = false
+							else
+								if not pack.smoothRect then
+									pack.smoothRect = { x = rx, y = ry, w = rw, h = rh }
+								else
+									local sr = pack.smoothRect
+									sr.x = sr.x + ((rx - sr.x) * BOX_SMOOTH_ALPHA)
+									sr.y = sr.y + ((ry - sr.y) * BOX_SMOOTH_ALPHA)
+									sr.w = sr.w + ((rw - sr.w) * BOX_SMOOTH_ALPHA)
+									sr.h = sr.h + ((rh - sr.h) * BOX_SMOOTH_ALPHA)
+								end
+
+								local sr = pack.smoothRect
+								pack.box.Size = Vector2.new(sr.w, sr.h)
+								pack.box.Position = Vector2.new(sr.x, sr.y)
+								pack.box.Color = rainbowCol
+								pack.box.Visible = true
+							end
+						elseif pack.box then
+							pack.smoothRect = nil
+							pack.box.Visible = false
+						end
+
+						if EspLineEnabled and pack.line then
+							local botScreen, botVis = cam:WorldToViewportPoint(bottomWorld)
+							if botScreen.Z > 0.05 and (botVis or ctrVis) then
+								pack.line.From = lineOrigin
+								pack.line.To = Vector2.new(botScreen.X, botScreen.Y)
+								pack.line.Color = rainbowCol
+								pack.line.Visible = true
+							else
+								pack.line.Visible = false
+							end
+						elseif pack.line then
+							pack.line.Visible = false
+						end
+
+						if EspSkeletonEnabled and pack.bones then
+							local pairsList = char:FindFirstChild("UpperTorso") and SKELETON_PAIRS_R15 or SKELETON_PAIRS_R6
+							for bIdx, bLine in ipairs(pack.bones) do
+								local pair = pairsList[bIdx]
+								local pA = pair and char:FindFirstChild(pair[1])
+								local pB = pair and char:FindFirstChild(pair[2])
+								if pA and pB and pA:IsA("BasePart") and pB:IsA("BasePart") then
+									local boneDist = (pA.Position - pB.Position).Magnitude
+									local nearCenter = (pA.Position - centerWorld).Magnitude <= 8 and (pB.Position - centerWorld).Magnitude <= 8
+									if boneDist > 0.05 and boneDist <= 8 and nearCenter then
+										local sA, vA = cam:WorldToViewportPoint(pA.Position)
+										local sB, vB = cam:WorldToViewportPoint(pB.Position)
+										if sA.Z > 0.05 and sB.Z > 0.05 and (vA or vB) then
+											bLine.From = Vector2.new(sA.X, sA.Y)
+											bLine.To = Vector2.new(sB.X, sB.Y)
+											bLine.Color = Color3.fromRGB(255, 255, 255)
+											bLine.Visible = true
+										else
+											bLine.Visible = false
+										end
+									else
+										bLine.Visible = false
+									end
+								else
+									bLine.Visible = false
+								end
+							end
+						elseif pack.bones then
+							for _, b in ipairs(pack.bones) do
+								b.Visible = false
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+CreateVisualRow("ESP BOX", 15, function(isOn)
+	EspBoxEnabled = isOn
+	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
+		ClearAllEsp()
+	end
+end)
+
+CreateVisualRow("ESP LINE", 45, function(isOn)
+	EspLineEnabled = isOn
+	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
+		ClearAllEsp()
+	end
+end)
+
+CreateVisualRow("ESP SEKELETON", 75, function(isOn)
+	EspSkeletonEnabled = isOn
+	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
+		ClearAllEsp()
+	end
+end)
+
+CreateVisualRow("TITLE OWNER", 105, function(isOn)
+	TitleOwnerEnabled = isOn
+	if TitleOwnerEnabled then
+		EnsureOwnerTitleGui(LocalPlayer.Character)
+	else
+		DestroyOwnerTitleGui()
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(plr)
+	ClearPlayerEsp(plr)
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+	if TitleOwnerEnabled then
+		task.wait(0.25)
+		EnsureOwnerTitleGui(newChar)
+	end
+end)
+
+local AutoThrowEnabled = false
+local CachedThrowCFrame = nil
+local CachedZonePrompts = {}
+local CachedLuckLabels = {}
+local CachedSkipLabels = {}
+local LastLuckRescan = 0
+
+local IsTriggerBusy = false
+local LastTriggerTime = 0
+local TRIGGER_COOLDOWN = 0.08
+local PROMPT_CLICK_DELAY = 0.0009
+local TargetNumbers = { [19] = true, [20] = true }
+
+local CurrentRunTarget = nil
+local NextRunPickTime = 0
+
+local Auto2xPullUpEnabled = false
+local Is2xBusy = false
+local Last2xClaimTime = 0
+local CLAIM_2X_COOLDOWN = 0.15
+local Cached2xGuis = {}
+local Cached2xPrompts = {}
+local CachedStopPullUpGuis = {}
+local Last2xRescan = 0
+
+local function SilentBackgroundClick(x, y)
+	pcall(function()
+		VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, nil, 0)
+		VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, nil, 0)
+	end)
+end
+
+local function IsGuiActuallyVisible(guiObj)
+	local curr = guiObj
+	while curr do
+		if curr:IsA("GuiObject") and not curr.Visible then
+			return false
+		end
+		if curr:IsA("LayerCollector") and not curr.Enabled then
+			return false
+		end
+		curr = curr.Parent
+	end
+	return true
+end
+
+local function IsSkipText(txt)
+	local lowerTxt = tostring(txt or ""):lower()
+	return lowerTxt:find("melewak", 1, true) ~= nil
+		or lowerTxt:find("melewat", 1, true) ~= nil
+		or lowerTxt:find("melanjut", 1, true) ~= nil
+end
+
+local function HidePromptVisual(prompt)
+	if not prompt or not prompt.Parent then
+		return
+	end
+	pcall(function()
+		prompt.Style = Enum.ProximityPromptStyle.Custom
+		prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, 18)
+	end)
+end
+
+local function Is2xCandidateNameOrText(str)
+	local s = tostring(str or ""):lower()
+	if s == "" then
+		return false
+	end
+	if s:find("2x", 1, true) or s:find("x2", 1, true) or s:find("double", 1, true) then
+		return true
+	end
+	return false
+end
+
+local function IsStopPullUpText(str)
+	local s = tostring(str or ""):lower()
+	if s == "" then
+		return false
+	end
+	return s:find("berhenti", 1, true) ~= nil
+		or s:find("stop", 1, true) ~= nil
+		or s:find("cancel", 1, true) ~= nil
+		or s:find("batal", 1, true) ~= nil
+		or s:find("keluar", 1, true) ~= nil
+		or s:find("exit", 1, true) ~= nil
+end
+
+local function ResolveClickableGui(obj)
+	if not obj then
+		return nil
+	end
+	if obj:IsA("GuiButton") then
+		return obj
+	end
+	if obj:IsA("GuiObject") then
+		if obj.Parent and obj.Parent:IsA("GuiButton") then
+			return obj.Parent
+		end
+		for _, child in ipairs(obj:GetChildren()) do
+			if child:IsA("GuiButton") then
+				return child
+			end
+		end
+	end
+	return obj
+end
+
+local function Refresh2xCache(hrp)
+	local foundGuis = {}
+	local foundPrompts = {}
+	local foundStopGuis = {}
+	local roots = {}
+
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		table.insert(roots, pg)
+	end
+	pcall(function()
+		if CoreGui then
+			table.insert(roots, CoreGui)
+		end
+	end)
+
+	for _, root in ipairs(roots) do
+		pcall(function()
+			for _, desc in ipairs(root:GetDescendants()) do
+				if not desc:IsDescendantOf(ScreenGui) then
+					if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+						if IsStopPullUpText(desc.Text) or IsStopPullUpText(desc.Name) then
+							table.insert(foundStopGuis, desc)
+						end
+						if Is2xCandidateNameOrText(desc.Text) or Is2xCandidateNameOrText(desc.Name) then
+							local targetGui = ResolveClickableGui(desc)
+							if targetGui and not table.find(foundGuis, targetGui) then
+								table.insert(foundGuis, targetGui)
+							end
+						end
+					elseif desc:IsA("ImageButton") or desc:IsA("ImageLabel") then
+						if Is2xCandidateNameOrText(desc.Name) or Is2xCandidateNameOrText(desc.Image) then
+							local targetGui = ResolveClickableGui(desc)
+							if targetGui and not table.find(foundGuis, targetGui) then
+								table.insert(foundGuis, targetGui)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end
+
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("ProximityPrompt") then
+			local meta = (tostring(obj.Name) .. " " .. tostring(obj.ActionText) .. " " .. tostring(obj.ObjectText)):lower()
+			if Is2xCandidateNameOrText(meta) or meta:find("pull", 1, true) then
+				local validNear = true
+				if hrp then
+					local p = obj.Parent
+					local pos = nil
+					if p and p:IsA("BasePart") then
+						pos = p.Position
+					elseif p and p:IsA("Model") then
+						pos = p:GetPivot().Position
+					end
+					if pos and (pos - hrp.Position).Magnitude > 25 then
+						validNear = false
+					end
+				end
+				if validNear then
+					table.insert(foundPrompts, obj)
+				end
+			end
+		end
+	end
+
+	Cached2xGuis = foundGuis
+	Cached2xPrompts = foundPrompts
+	CachedStopPullUpGuis = foundStopGuis
+	Last2xRescan = os.clock()
+end
+
+local function IsDoingPullUp(char, hrp, hum)
+	if not char or not hrp or not hum or hum.Health <= 0 then
+		return false
+	end
+
+	local now = os.clock()
+	if (#CachedStopPullUpGuis == 0 and #Cached2xGuis == 0) or (now - Last2xRescan) >= 1.5 then
+		Refresh2xCache(hrp)
+	end
+
+	for i = #CachedStopPullUpGuis, 1, -1 do
+		local g = CachedStopPullUpGuis[i]
+		if not g or not g.Parent then
+			table.remove(CachedStopPullUpGuis, i)
+		elseif IsGuiActuallyVisible(g) and IsStopPullUpText(g.Text) then
+			return true
+		end
+	end
+
+	if char:GetAttribute("PullUp") == true or char:GetAttribute("IsPullUp") == true or char:GetAttribute("Training") == true then
+		return true
+	end
+
+	for _, child in ipairs(char:GetChildren()) do
+		if child:IsA("Tool") then
+			local tName = child.Name:lower()
+			if tName:find("pull", 1, true) or tName:find("bar", 1, true) then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function Detect2xTarget(hrp)
+	local now = os.clock()
+	if (#Cached2xGuis == 0 and #Cached2xPrompts == 0) or (now - Last2xRescan) >= 1.5 then
+		Refresh2xCache(hrp)
+	end
+
+	local activeGui = nil
+	for i = #Cached2xGuis, 1, -1 do
+		local g = Cached2xGuis[i]
+		if not g or not g.Parent then
+			table.remove(Cached2xGuis, i)
+		elseif IsGuiActuallyVisible(g) and g:IsA("GuiObject") and g.AbsoluteSize.X > 4 and g.AbsoluteSize.Y > 4 then
+			activeGui = g
+			break
+		end
+	end
+
+	local activePrompt = nil
+	for i = #Cached2xPrompts, 1, -1 do
+		local pr = Cached2xPrompts[i]
+		if not pr or not pr.Parent then
+			table.remove(Cached2xPrompts, i)
+		elseif pr.Enabled then
+			activePrompt = pr
+			break
+		end
+	end
+
+	return activeGui, activePrompt
+end
+
+local function Trigger2xWithProximity(targetGui, targetPrompt)
+	if targetPrompt and targetPrompt.Parent and targetPrompt.Enabled then
+		HidePromptVisual(targetPrompt)
+		pcall(function()
+			if fireproximityprompt then
+				fireproximityprompt(targetPrompt)
+			else
+				targetPrompt:InputHoldBegin()
+				task.wait(PROMPT_CLICK_DELAY)
+				targetPrompt:InputHoldEnd()
+			end
+		end)
+	end
+
+	if targetGui and targetGui:IsA("GuiObject") and IsGuiActuallyVisible(targetGui) and targetGui.AbsoluteSize.X > 0 and targetGui.AbsoluteSize.Y > 0 then
+		local cx = targetGui.AbsolutePosition.X + (targetGui.AbsoluteSize.X * 0.5)
+		local cy = targetGui.AbsolutePosition.Y + (targetGui.AbsoluteSize.Y * 0.5)
+
+		if targetGui:IsA("GuiButton") then
+			pcall(function()
+				for _, conn in ipairs(getconnections(targetGui.MouseButton1Click)) do
+					conn:Fire()
+				end
+			end)
+			pcall(function()
+				for _, conn in ipairs(getconnections(targetGui.Activated)) do
+					conn:Fire()
+				end
+			end)
+		end
+
+		SilentBackgroundClick(cx, cy)
+	end
+end
+
+local function IsThrowLineColor(color)
+	return (color.R >= 0.72 and color.G >= 0.35 and color.B <= 0.38)
+end
+
+local function BuildWorldCache(hrp)
+	local candidateParts = {}
+	local namedZones = {}
+	local prompts = {}
+
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Anchored then
+			local nameLower = obj.Name:lower()
+			if nameLower:find("throw") or nameLower:find("start") or nameLower:find("launch") then
+				if obj.Size.X >= 6 or obj.Size.Z >= 6 then
+					table.insert(namedZones, obj)
+				end
+			end
+
+			local isFlatStrip = (obj.Size.Y <= 3.5) and (math.max(obj.Size.X, obj.Size.Z) >= 8)
+			if isFlatStrip and IsThrowLineColor(obj.Color) then
+				table.insert(candidateParts, obj)
+			end
+		elseif obj:IsA("ProximityPrompt") then
+			table.insert(prompts, obj)
+		end
+	end
+
+	local foundCFrame = nil
+	if #namedZones > 0 then
+		local bestPart = namedZones[1]
+		local bestDist = (bestPart.Position - hrp.Position).Magnitude
+		for _, p in ipairs(namedZones) do
+			local d = (p.Position - hrp.Position).Magnitude
+			if d < bestDist then
+				bestDist = d
+				bestPart = p
+			end
+		end
+		local topY = bestPart.Position.Y + (bestPart.Size.Y * 0.5) + 3.2
+		foundCFrame = CFrame.new(bestPart.Position.X, topY, bestPart.Position.Z)
+	elseif #candidateParts > 0 then
+		local anchor = candidateParts[1]
+		local minDist = (anchor.Position - hrp.Position).Magnitude
+		for _, p in ipairs(candidateParts) do
+			local d = (p.Position - hrp.Position).Magnitude
+			if d < minDist then
+				minDist = d
+				anchor = p
+			end
+		end
+
+		local sumPos = Vector3.zero
+		local count = 0
+		local maxTopY = anchor.Position.Y + (anchor.Size.Y * 0.5)
+
+		for _, p in ipairs(candidateParts) do
+			if math.abs(p.Position.Y - anchor.Position.Y) <= 4 and (p.Position - anchor.Position).Magnitude <= 80 then
+				sumPos += p.Position
+				count += 1
+				local top = p.Position.Y + (p.Size.Y * 0.5)
+				if top > maxTopY then
+					maxTopY = top
+				end
+			end
+		end
+
+		if count > 0 then
+			local avgCenter = sumPos / count
+			foundCFrame = CFrame.new(avgCenter.X, maxTopY + 3.2, avgCenter.Z)
+		end
+	end
+
+	local filteredPrompts = {}
+	if foundCFrame then
+		for _, prompt in ipairs(prompts) do
+			local p = prompt.Parent
+			local pos = nil
+			if p and p:IsA("BasePart") then
+				pos = p.Position
+			elseif p and p:IsA("Model") then
+				pos = p:GetPivot().Position
+			end
+			if pos then
+				local distZone = Vector2.new(pos.X - foundCFrame.Position.X, pos.Z - foundCFrame.Position.Z).Magnitude
+				if distZone <= 18 then
+					HidePromptVisual(prompt)
+					table.insert(filteredPrompts, { prompt = prompt, pos = pos })
+				end
+			end
+		end
+	end
+
+	CachedThrowCFrame = foundCFrame
+	CachedZonePrompts = filteredPrompts
+end
+
+local function RefreshLuckLabelsCache()
+	local labels = {}
+	local skipLabels = {}
+	local roots = {}
+
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		table.insert(roots, pg)
+	end
+	pcall(function()
+		if CoreGui then
+			table.insert(roots, CoreGui)
+		end
+	end)
+
+	for _, root in ipairs(roots) do
+		local okScan = pcall(function()
+			for _, desc in ipairs(root:GetDescendants()) do
+				if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
+					if desc.Name ~= "Title" and not desc:IsDescendantOf(ScreenGui) then
+						local txt = tostring(desc.Text or "")
+						if txt:find("%+") then
+							table.insert(labels, desc)
+						end
+						if IsSkipText(txt) then
+							table.insert(skipLabels, desc)
+						end
+					end
+				end
+			end
+		end)
+		if not okScan then
+			continue
+		end
+	end
+
+	CachedLuckLabels = labels
+	CachedSkipLabels = skipLabels
+	LastLuckRescan = os.clock()
+end
+
+local function DetectSkipPromptText()
+	local now = os.clock()
+	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
+		RefreshLuckLabelsCache()
+	end
+
+	for i = #CachedSkipLabels, 1, -1 do
+		local lbl = CachedSkipLabels[i]
+		if not lbl or not lbl.Parent then
+			table.remove(CachedSkipLabels, i)
+		elseif IsGuiActuallyVisible(lbl) and IsSkipText(lbl.Text) then
+			return lbl
+		end
+	end
+
+	return nil
+end
+
+local function DetectPlusThrowNumber()
+	local now = os.clock()
+	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
+		RefreshLuckLabelsCache()
+	end
+
+	for i = #CachedLuckLabels, 1, -1 do
+		local lbl = CachedLuckLabels[i]
+		if not lbl or not lbl.Parent then
+			table.remove(CachedLuckLabels, i)
+		elseif IsGuiActuallyVisible(lbl) then
+			local txt = tostring(lbl.Text or "")
+			local numStr = txt:match("^%+%s*(%d+)$") or txt:match("^%+(%d+)")
+			if numStr then
+				local n = tonumber(numStr)
+				if n and TargetNumbers[n] then
+					return n
+				end
+			end
+		end
+	end
+
+	return nil
+end
+
+local function IsInThrowZone(hrp, zoneCFrame)
+	if not hrp or not zoneCFrame then
+		return false
+	end
+	local horizontalDist = Vector2.new(hrp.Position.X - zoneCFrame.Position.X, hrp.Position.Z - zoneCFrame.Position.Z).Magnitude
+	local verticalDiff = math.abs(hrp.Position.Y - zoneCFrame.Position.Y)
+	return (horizontalDist <= 10) and (verticalDiff <= 5)
+end
+
+local function TeleportToZone(hrp, zoneCFrame)
+	if not hrp or not zoneCFrame then
+		return false
+	end
+	pcall(function()
+		hrp.AssemblyLinearVelocity = Vector3.zero
+		hrp.AssemblyAngularVelocity = Vector3.zero
+		hrp.CFrame = zoneCFrame
+	end)
+	return IsInThrowZone(hrp, zoneCFrame)
+end
+
+local function TriggerProximityOnce(hrp, skipGui)
+	local firedAny = false
+	for _, item in ipairs(CachedZonePrompts) do
+		local prompt = item.prompt
+		if prompt and prompt.Parent and prompt.Enabled then
+			HidePromptVisual(prompt)
+			pcall(function()
+				if fireproximityprompt then
+					fireproximityprompt(prompt)
+					firedAny = true
+				else
+					prompt:InputHoldBegin()
+					task.wait(PROMPT_CLICK_DELAY)
+					prompt:InputHoldEnd()
+					firedAny = true
+				end
+			end)
+			if firedAny then
+				break
+			end
+		end
+	end
+
+	if not firedAny and hrp then
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("ProximityPrompt") and obj.Enabled then
+				local p = obj.Parent
+				local pos = nil
+				if p and p:IsA("BasePart") then
+					pos = p.Position
+				elseif p and p:IsA("Model") then
+					pos = p:GetPivot().Position
+				end
+				if pos and (pos - hrp.Position).Magnitude <= 50 then
+					HidePromptVisual(obj)
+					pcall(function()
+						if fireproximityprompt then
+							fireproximityprompt(obj)
+							firedAny = true
+						else
+							obj:InputHoldBegin()
+							task.wait(PROMPT_CLICK_DELAY)
+							obj:InputHoldEnd()
+							firedAny = true
+						end
+					end)
+					if firedAny then
+						break
+					end
+				end
+			end
+		end
+	end
+
+	local x, y = nil, nil
+	if skipGui and skipGui:IsA("GuiObject") and skipGui.AbsoluteSize.X > 0 and skipGui.AbsoluteSize.Y > 0 then
+		x = skipGui.AbsolutePosition.X + (skipGui.AbsoluteSize.X * 0.5)
+		y = skipGui.AbsolutePosition.Y + (skipGui.AbsoluteSize.Y * 0.5)
+		if skipGui:IsA("TextButton") or skipGui:IsA("ImageButton") then
+			pcall(function()
+				for _, conn in ipairs(getconnections(skipGui.MouseButton1Click)) do
+					conn:Fire()
+				end
+			end)
+		end
+	end
+
+	local cam = workspace.CurrentCamera
+	if cam then
+		x = x or (cam.ViewportSize.X * 0.5)
+		y = y or (cam.ViewportSize.Y * 0.5)
+		SilentBackgroundClick(x, y)
+	end
+end
+
+local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
+	if allowPrompt and zoneCFrame and IsInThrowZone(hrp, zoneCFrame) then
+		for _, item in ipairs(CachedZonePrompts) do
+			local prompt = item.prompt
+			local pos = item.pos
+			if prompt and prompt.Parent and prompt.Enabled and pos then
+				if (pos - hrp.Position).Magnitude <= 16 then
+					HidePromptVisual(prompt)
+					pcall(function()
+						if fireproximityprompt then
+							fireproximityprompt(prompt)
+						else
+							prompt:InputHoldBegin()
+							prompt:InputHoldEnd()
+						end
+					end)
+					break
+				end
+			end
+		end
+	end
+
+	local cam = workspace.CurrentCamera
+	if cam then
+		local x, y = cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5
+		SilentBackgroundClick(x, y)
+	end
+end
+
+local function StepAutoRunAnywhere(hum, hrp)
+	if not hum or not hrp then
+		return
+	end
+
+	local now = os.clock()
+	if not CurrentRunTarget or now >= NextRunPickTime then
+		local angle = RNG:NextNumber(0, math.pi * 2)
+		local dist = RNG:NextNumber(14, 28)
+		CurrentRunTarget = hrp.Position + Vector3.new(
+			math.cos(angle) * dist,
+			0,
+			math.sin(angle) * dist
+		)
+		NextRunPickTime = now + 0.9
+	end
+
+	pcall(function()
+		if hum.WalkSpeed < 16 then
+			hum.WalkSpeed = 16
+		end
+		hum:MoveTo(CurrentRunTarget)
+	end)
+end
+
+RunService.Heartbeat:Connect(function()
+	local t = os.clock()
+	for _, entry in ipairs(RainbowGradients) do
+		if entry.gradient and entry.gradient.Parent then
+			entry.gradient.Rotation = (entry.offset + (t * 65)) % 360
+		end
+	end
+
+	if TitleOwnerEnabled then
+		EnsureOwnerTitleGui(LocalPlayer.Character)
+	end
+	UpdateVisualEspFrame(t)
+
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hrp or not hum or hum.Health <= 0 then
+		return
+	end
+
+	local now = os.clock()
+
+	if Auto2xPullUpEnabled and not Is2xBusy and (now - Last2xClaimTime) >= CLAIM_2X_COOLDOWN then
+		if IsDoingPullUp(char, hrp, hum) then
+			local target2xGui, target2xPrompt = Detect2xTarget(hrp)
+			if target2xGui or target2xPrompt then
+				Is2xBusy = true
+				Last2xClaimTime = now
+				task.spawn(function()
+					Trigger2xWithProximity(target2xGui, target2xPrompt)
+					task.wait(0.08)
+					Is2xBusy = false
+				end)
+			end
+		end
+	end
+
+	if not AutoThrowEnabled or IsTriggerBusy then
+		return
+	end
+
+	if (now - LastTriggerTime) < TRIGGER_COOLDOWN then
+		return
+	end
+
+	if not CachedThrowCFrame then
+		BuildWorldCache(hrp)
+	end
+
+	local skipGui = DetectSkipPromptText()
+	if skipGui then
+		IsTriggerBusy = true
+		LastTriggerTime = now
+
+		task.spawn(function()
+			TriggerProximityOnce(hrp, skipGui)
+			task.wait(0.12)
+			IsTriggerBusy = false
+		end)
+		return
+	end
+
+	local detected = DetectPlusThrowNumber()
+	if detected then
+		IsTriggerBusy = true
+		LastTriggerTime = now
+
+		task.spawn(function()
+			local inZone = IsInThrowZone(hrp, CachedThrowCFrame)
+			if not inZone and CachedThrowCFrame then
+				inZone = TeleportToZone(hrp, CachedThrowCFrame)
+			end
+			FireThrowNow(hrp, CachedThrowCFrame, inZone)
+			task.wait(0.08)
+			IsTriggerBusy = false
+		end)
+	end
+end)
+
+task.spawn(function()
+	while true do
+		if AutoThrowEnabled then
+			local char = LocalPlayer.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+			if hrp and hum and hum.Health > 0 then
+				if not CachedThrowCFrame then
+					BuildWorldCache(hrp)
+				end
+
+				if not IsTriggerBusy then
+					if CachedThrowCFrame and not IsInThrowZone(hrp, CachedThrowCFrame) then
+						TeleportToZone(hrp, CachedThrowCFrame)
+					end
+
+					if hrp.AssemblyLinearVelocity.Magnitude < 2.5 or not CurrentRunTarget or os.clock() >= NextRunPickTime then
+						StepAutoRunAnywhere(hum, hrp)
+					end
+				end
+			end
+		else
+			CurrentRunTarget = nil
+			NextRunPickTime = 0
+		end
+		task.wait(0.2)
+	end
+end)
+
+local AutoThrowSwitch = CreateModernToggle(ToggleHolder, function(isEnabled)
+	AutoThrowEnabled = isEnabled
+	if AutoThrowEnabled then
+		IsTriggerBusy = false
+		LastTriggerTime = 0
+		CachedThrowCFrame = nil
+		CachedZonePrompts = {}
+		CachedLuckLabels = {}
+		CachedSkipLabels = {}
+		CurrentRunTarget = nil
+		NextRunPickTime = 0
+	else
+		IsTriggerBusy = false
+		CachedThrowCFrame = nil
+		CachedZonePrompts = {}
+		CachedLuckLabels = {}
+		CachedSkipLabels = {}
+		CurrentRunTarget = nil
+		NextRunPickTime = 0
+	end
+end)
+
+local PullUp2xSwitch = CreateModernToggle(PullUp2xHolder, function(isEnabled)
+	Auto2xPullUpEnabled = isEnabled
+	if Auto2xPullUpEnabled then
+		Is2xBusy = false
+		Last2xClaimTime = 0
+		Cached2xGuis = {}
+		Cached2xPrompts = {}
+		CachedStopPullUpGuis = {}
+		Last2xRescan = 0
+	else
+		Is2xBusy = false
+		Cached2xGuis = {}
+		Cached2xPrompts = {}
+		CachedStopPullUpGuis = {}
+	end
+end)
