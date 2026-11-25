@@ -345,7 +345,6 @@ local SavedCharRootCFrame = nil
 local SavedCharRootAnchored = nil
 local AnimalWatcherConn = nil
 local CharWatcherConns = {}
-local RagdollActiveNow = false
 
 -- Arah masuk ke lorong sesuai Foto 2 (jika nil, otomatis ambil arah kamera saat lock diaktifkan)
 local CORRIDOR_DIR = nil
@@ -477,118 +476,34 @@ local function ClearCharWatchers()
 	CharWatcherConns = {}
 end
 
--- Hentikan semua animasi lempar / ancang-ancang tanpa memainkan animasi apa pun
-local function SuppressCharacterAnimations(char, freezePose)
+local function HideLocalCharacterVisuals(char)
 	if not char then
 		return
 	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	local animator = hum and hum:FindFirstChildOfClass("Animator")
-
-	if animator then
-		pcall(function()
-			for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-				track:Stop(0)
-			end
-		end)
-		if freezePose then
-			if SavedCharAppearance[animator] == nil then
-				SavedCharAppearance[animator] = {
-					Parent = animator.Parent,
-				}
-			end
-			pcall(function()
-				animator.Parent = nil
-			end)
-		end
-	end
-
 	for _, desc in ipairs(char:GetDescendants()) do
-		if desc:IsA("AnimationController") or desc:IsA("Animator") then
-			pcall(function()
-				for _, tr in ipairs(desc:GetPlayingAnimationTracks()) do
-					tr:Stop(0)
-				end
-			end)
-		elseif desc:IsA("Motor6D") and freezePose then
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
 			if SavedCharAppearance[desc] == nil then
 				SavedCharAppearance[desc] = {
-					Transform = desc.Transform,
+					Transparency = desc.Transparency,
+					LocalTransparencyModifier = desc:IsA("BasePart") and desc.LocalTransparencyModifier or nil,
 				}
 			end
 			pcall(function()
-				desc.Transform = CFrame.identity
+				desc.Transparency = 1
+				if desc:IsA("BasePart") then
+					desc.LocalTransparencyModifier = 1
+				end
 			end)
-		end
-	end
-end
-
-local function SetCharacterRagdollState(char, isRagdoll)
-	if not char then
-		return
-	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-
-	if hum then
-		if SavedCharAppearance[hum] == nil then
-			SavedCharAppearance[hum] = {
-				DisplayDistanceType = hum.DisplayDistanceType,
-				HealthDisplayType = hum.HealthDisplayType,
-				PlatformStand = hum.PlatformStand,
-				AutoRotate = hum.AutoRotate,
-			}
-		end
-		pcall(function()
-			hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-			hum.HealthDisplayType = Enum.HumanoidDisplayDistanceType.AlwaysOff
-			hum.PlatformStand = isRagdoll
-			hum.AutoRotate = not isRagdoll
-			if isRagdoll then
-				hum:ChangeState(Enum.HumanoidStateType.Ragdoll)
-			else
-				hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-			end
-		end)
-	end
-
-	for _, desc in ipairs(char:GetDescendants()) do
-		if desc:IsA("Motor6D") then
+		elseif desc:IsA("BillboardGui") or desc:IsA("SurfaceGui") then
 			if SavedCharAppearance[desc] == nil then
 				SavedCharAppearance[desc] = {
 					Enabled = desc.Enabled,
-					Transform = desc.Transform,
 				}
 			end
 			pcall(function()
-				desc.Transform = CFrame.identity
-				desc.Enabled = not isRagdoll
+				desc.Enabled = false
 			end)
-		elseif desc:IsA("BasePart") then
-			if SavedCharAppearance[desc] == nil then
-				SavedCharAppearance[desc] = {
-					Transparency = desc.Transparency,
-					LocalTransparencyModifier = desc.LocalTransparencyModifier,
-					CanCollide = desc.CanCollide,
-				}
-			end
-			pcall(function()
-				desc.Transparency = 1
-				desc.LocalTransparencyModifier = 1
-				if desc ~= hrp then
-					desc.CanCollide = isRagdoll
-				end
-			end)
-		elseif desc:IsA("Decal") or desc:IsA("Texture") then
-			if SavedCharAppearance[desc] == nil then
-				SavedCharAppearance[desc] = {
-					Transparency = desc.Transparency,
-				}
-			end
-			pcall(function()
-				desc.Transparency = 1
-			end)
-		elseif desc:IsA("BillboardGui") or desc:IsA("SurfaceGui") or desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+		elseif desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
 			if SavedCharAppearance[desc] == nil then
 				SavedCharAppearance[desc] = {
 					Enabled = desc.Enabled,
@@ -599,43 +514,37 @@ local function SetCharacterRagdollState(char, isRagdoll)
 			end)
 		end
 	end
-
-	if isRagdoll and hrp and hrp:IsA("BasePart") then
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		if SavedCharAppearance[hum] == nil then
+			SavedCharAppearance[hum] = {
+				DisplayDistanceType = hum.DisplayDistanceType,
+				HealthDisplayType = hum.HealthDisplayType,
+			}
+		end
 		pcall(function()
-			hrp.AssemblyAngularVelocity = Vector3.new(
-				RNG:NextNumber(-6, 6),
-				RNG:NextNumber(-6, 6),
-				RNG:NextNumber(-6, 6)
-			)
+			hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			hum.HealthDisplayType = Enum.HumanoidDisplayDistanceType.AlwaysOff
 		end)
 	end
 end
 
-local function TriggerRagdollThrowPose()
-	if not RemoveCharacterEnabled then
-		return
-	end
-	local char = LocalPlayer.Character
+local function ParkLocalCharacterOutOfView(char)
 	if not char then
 		return
 	end
-	RagdollActiveNow = true
-	SuppressCharacterAnimations(char, true)
-	SetCharacterRagdollState(char, true)
-	task.delay(0.28, function()
-		if RemoveCharacterEnabled and LocalPlayer.Character == char then
-			local cChar = LocalPlayer.Character
-			if cChar then
-				SuppressCharacterAnimations(cChar, true)
-				SetCharacterRagdollState(cChar, false)
-				task.wait(0.03)
-				if RemoveCharacterEnabled and LocalPlayer.Character == cChar then
-					SetCharacterRagdollState(cChar, true)
-				end
-			end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp and hrp:IsA("BasePart") then
+		if SavedCharRootCFrame == nil then
+			SavedCharRootCFrame = hrp.CFrame
+			SavedCharRootAnchored = hrp.Anchored
 		end
-		RagdollActiveNow = false
-	end)
+		pcall(function()
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
+			hrp.CFrame = hrp.CFrame * CFrame.new(0, -18, 0)
+		end)
+	end
 end
 
 local function ApplyCharacterRemoval()
@@ -643,73 +552,40 @@ local function ApplyCharacterRemoval()
 	if not char then
 		return
 	end
-	SuppressCharacterAnimations(char, true)
-	SetCharacterRagdollState(char, true)
+	HideLocalCharacterVisuals(char)
+	ParkLocalCharacterOutOfView(char)
 
 	ClearCharWatchers()
 	table.insert(CharWatcherConns, char.DescendantAdded:Connect(function(desc)
 		if RemoveCharacterEnabled then
 			task.defer(function()
 				if RemoveCharacterEnabled and LocalPlayer.Character == char then
-					SuppressCharacterAnimations(char, true)
-					SetCharacterRagdollState(char, true)
+					HideLocalCharacterVisuals(char)
 				end
 			end)
 		end
 	end))
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		table.insert(CharWatcherConns, hum.AnimationPlayed:Connect(function(track)
-			if RemoveCharacterEnabled then
-				pcall(function()
-					track:Stop(0)
-				end)
-			end
-		end))
-	end
 end
 
 local function RestoreLocalCharacter()
 	ClearCharWatchers()
-	RagdollActiveNow = false
 	local char = LocalPlayer.Character
 
 	for inst, prev in pairs(SavedCharAppearance) do
-		if inst then
+		if inst and inst.Parent then
 			pcall(function()
-				if inst:IsA("Animator") and prev.Parent and prev.Parent.Parent then
-					inst.Parent = prev.Parent
-				elseif inst.Parent then
-					if inst:IsA("Motor6D") then
-						if prev.Transform ~= nil then
-							inst.Transform = prev.Transform
-						end
-						if prev.Enabled ~= nil then
-							inst.Enabled = prev.Enabled
-						end
-					elseif inst:IsA("BasePart") then
-						inst.Transparency = prev.Transparency
-						if prev.LocalTransparencyModifier ~= nil then
-							inst.LocalTransparencyModifier = prev.LocalTransparencyModifier
-						end
-						if prev.CanCollide ~= nil then
-							inst.CanCollide = prev.CanCollide
-						end
-					elseif inst:IsA("Decal") or inst:IsA("Texture") then
-						inst.Transparency = prev.Transparency
-					elseif inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") then
-						inst.Enabled = prev.Enabled
-					elseif inst:IsA("Humanoid") then
-						inst.DisplayDistanceType = prev.DisplayDistanceType
-						inst.HealthDisplayType = prev.HealthDisplayType
-						if prev.PlatformStand ~= nil then
-							inst.PlatformStand = prev.PlatformStand
-						end
-						if prev.AutoRotate ~= nil then
-							inst.AutoRotate = prev.AutoRotate
-						end
-						inst:ChangeState(Enum.HumanoidStateType.GettingUp)
+				if inst:IsA("BasePart") then
+					inst.Transparency = prev.Transparency
+					if prev.LocalTransparencyModifier ~= nil then
+						inst.LocalTransparencyModifier = prev.LocalTransparencyModifier
 					end
+				elseif inst:IsA("Decal") or inst:IsA("Texture") then
+					inst.Transparency = prev.Transparency
+				elseif inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") then
+					inst.Enabled = prev.Enabled
+				elseif inst:IsA("Humanoid") then
+					inst.DisplayDistanceType = prev.DisplayDistanceType
+					inst.HealthDisplayType = prev.HealthDisplayType
 				end
 			end)
 		end
@@ -717,14 +593,6 @@ local function RestoreLocalCharacter()
 	SavedCharAppearance = {}
 
 	if char then
-		local hum = char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			pcall(function()
-				hum.PlatformStand = false
-				hum.AutoRotate = true
-				hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-			end)
-		end
 		local hrp = char:FindFirstChild("HumanoidRootPart")
 		if hrp and hrp:IsA("BasePart") and SavedCharRootCFrame then
 			pcall(function()
@@ -1864,7 +1732,6 @@ local function FireSkipReflexNow(skipGui)
 	LastReflexSkipTime = now
 	LastTriggerTime = now
 
-	TriggerRagdollThrowPose()
 	RefreshPromptCacheLight(false)
 	local char = LocalPlayer.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -2459,9 +2326,6 @@ local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
 	if not AutoThrowEnabled then
 		return
 	end
-	if RemoveCharacterEnabled then
-		TriggerRagdollThrowPose()
-	end
 	if allowPrompt then
 		FireThrowProximityPrompts(hrp, zoneCFrame)
 	end
@@ -2507,13 +2371,6 @@ RunService.Heartbeat:Connect(function()
 	for _, entry in ipairs(RainbowGradients) do
 		if entry.gradient and entry.gradient.Parent then
 			entry.gradient.Rotation = (entry.offset + (t * 65)) % 360
-		end
-	end
-
-	if RemoveCharacterEnabled then
-		local cChar = LocalPlayer.Character
-		if cChar then
-			SuppressCharacterAnimations(cChar, false)
 		end
 	end
 
