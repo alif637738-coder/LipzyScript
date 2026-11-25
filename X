@@ -10,7 +10,8 @@ local RNG = Random.new()
 local UI_Name = "LpzyxHub_ThrowFood"
 if CoreGui:FindFirstChild(UI_Name) then
 	CoreGui[UI_Name]:Destroy()
-elseif LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(UI_Name) then
+end
+if LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild(UI_Name) then
 	LocalPlayer.PlayerGui[UI_Name]:Destroy()
 end
 
@@ -136,68 +137,16 @@ local function CreateModernToggle(parent, onChanged)
 
 	return {
 		Button = Track,
-		SetState = function(val)
+		SetState = function(val, fireCallback)
 			SetVisualState(val, false)
+			if fireCallback and onChanged then
+				onChanged(val)
+			end
 		end,
 		GetState = function()
 			return state
 		end,
 	}
-end
-
-local EspBoxEnabled = false
-local EspLineEnabled = false
-local EspSkeletonEnabled = false
-local TitleOwnerEnabled = false
-
-local HasDrawingApi = (typeof(Drawing) == "table" and typeof(Drawing.new) == "function")
-local PlayerEspDrawings = {}
-local OwnerBillboardGui = nil
-local OwnerTitleLabel = nil
-local OwnerShadowLabel = nil
-local OwnerShadow2Label = nil
-
-local function ClearPlayerEsp(plr)
-	local pack = PlayerEspDrawings[plr]
-	if not pack then
-		return
-	end
-	if pack.box then
-		pcall(function()
-			pack.box:Remove()
-		end)
-	end
-	if pack.line then
-		pcall(function()
-			pack.line:Remove()
-		end)
-	end
-	if pack.bones then
-		for _, b in ipairs(pack.bones) do
-			pcall(function()
-				b:Remove()
-			end)
-		end
-	end
-	PlayerEspDrawings[plr] = nil
-end
-
-local function ClearAllEsp()
-	for plr in pairs(PlayerEspDrawings) do
-		ClearPlayerEsp(plr)
-	end
-end
-
-local function DestroyOwnerTitleGui()
-	if OwnerBillboardGui then
-		pcall(function()
-			OwnerBillboardGui:Destroy()
-		end)
-	end
-	OwnerBillboardGui = nil
-	OwnerTitleLabel = nil
-	OwnerShadowLabel = nil
-	OwnerShadow2Label = nil
 end
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -278,8 +227,6 @@ CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseBtn
 
 CloseBtn.MouseButton1Click:Connect(function()
-	ClearAllEsp()
-	DestroyOwnerTitleGui()
 	ScreenGui:Destroy()
 end)
 
@@ -317,7 +264,7 @@ local ContentCorner = Instance.new("UICorner")
 ContentCorner.CornerRadius = UDim.new(0, 8)
 ContentCorner.Parent = ContentContainer
 
-local Tabs = {"HOME", "FRAM", "VISUAL", "PLAYER", "MISCH"}
+local Tabs = { "HOME", "FRAM", "PLAYER", "MISCH" }
 local TabFrames = {}
 local TabButtons = {}
 local TabGradients = {}
@@ -580,8 +527,8 @@ local function AddMergedDetailRow(yPos, labelStr, valueStr, accentColor, showSep
 end
 
 AddMergedDetailRow(0, "Username", tostring(LocalPlayer.Name), Color3.fromRGB(75, 225, 255), true)
-AddMergedDetailRow(36, "Buat Akun", createdDateStr, Color3.fromRGB(255, 180, 70), true)
-local DeviceClockVal = AddMergedDetailRow(72, "Calendar/Clock", os.date("%H:%M:%S • %d/%m/%Y"), Color3.fromRGB(220, 95, 255), false)
+AddMergedDetailRow(36, "Account Created", createdDateStr, Color3.fromRGB(255, 180, 70), true)
+local DeviceClockVal = AddMergedDetailRow(72, "Calendar / Clock", os.date("%H:%M:%S • %d/%m/%Y"), Color3.fromRGB(220, 95, 255), false)
 
 local SessionStart = os.clock()
 local ProfileFooterLbl = Instance.new("TextLabel")
@@ -589,7 +536,7 @@ ProfileFooterLbl.Name = "ProfileFooterLbl"
 ProfileFooterLbl.Size = UDim2.new(1, -28, 0, 15)
 ProfileFooterLbl.Position = UDim2.new(0, 14, 1, -20)
 ProfileFooterLbl.BackgroundTransparency = 1
-ProfileFooterLbl.Text = "LPZYX HUB  •  00:00"
+ProfileFooterLbl.Text = "LPZYX HUB • 00:00"
 ProfileFooterLbl.TextColor3 = Color3.fromRGB(130, 130, 150)
 ProfileFooterLbl.Font = Enum.Font.GothamBold
 ProfileFooterLbl.TextSize = 9
@@ -602,541 +549,176 @@ task.spawn(function()
 		local elapsed = math.max(0, math.floor(os.clock() - SessionStart))
 		local mins = math.floor(elapsed / 60)
 		local secs = elapsed % 60
-		ProfileFooterLbl.Text = string.format("LPZYX HUB  •  %02d:%02d", mins, secs)
+		ProfileFooterLbl.Text = string.format("LPZYX HUB • %02d:%02d", mins, secs)
 		task.wait(1)
 	end
 end)
 
-local FramPage = TabFrames["FRAM"]
+local FramePage = TabFrames["FRAM"]
 
-local ToggleHolder = Instance.new("Frame")
-ToggleHolder.Size = UDim2.new(1, -20, 0, 45)
-ToggleHolder.Position = UDim2.new(0, 10, 0, 12)
-ToggleHolder.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
-ToggleHolder.BorderSizePixel = 0
-ToggleHolder.Parent = FramPage
+local FramScroll = Instance.new("ScrollingFrame")
+FramScroll.Name = "FramScroll"
+FramScroll.Size = UDim2.new(1, -12, 1, -12)
+FramScroll.Position = UDim2.new(0, 6, 0, 6)
+FramScroll.BackgroundTransparency = 1
+FramScroll.BorderSizePixel = 0
+FramScroll.ScrollBarThickness = 4
+FramScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 130, 180)
+FramScroll.CanvasSize = UDim2.new(0, 0, 0, 240)
+FramScroll.Parent = FramePage
 
-local HolderCorner = Instance.new("UICorner")
-HolderCorner.CornerRadius = UDim.new(0, 8)
-HolderCorner.Parent = ToggleHolder
+local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText, innerToggleTitle, descriptionText, yPos, rotOffset, onToggleChanged)
+	local HEADER_HEIGHT = 45
+	local EXPANDED_HEIGHT = 114
 
-local HolderStroke = Instance.new("UIStroke")
-HolderStroke.Color = Color3.fromRGB(255, 255, 255)
-HolderStroke.Thickness = 1.2
-HolderStroke.Parent = ToggleHolder
-ApplyRainbowGradient(HolderStroke, 30)
+	local Holder = Instance.new("Frame")
+	Holder.Name = namePrefix .. "Holder"
+	Holder.Size = UDim2.new(1, -16, 0, HEADER_HEIGHT)
+	Holder.Position = UDim2.new(0, 8, 0, yPos)
+	Holder.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
+	Holder.BorderSizePixel = 0
+	Holder.ClipsDescendants = true
+	Holder.Parent = FramScroll
 
-local FeatureLabel = Instance.new("TextLabel")
-FeatureLabel.Size = UDim2.new(0, 190, 1, 0)
-FeatureLabel.Position = UDim2.new(0, 15, 0, 0)
-FeatureLabel.BackgroundTransparency = 1
-FeatureLabel.Text = "Auto Throw"
-FeatureLabel.TextColor3 = Color3.fromRGB(240, 240, 248)
-FeatureLabel.Font = Enum.Font.GothamBold
-FeatureLabel.TextSize = 15
-FeatureLabel.TextXAlignment = Enum.TextXAlignment.Left
-FeatureLabel.Parent = ToggleHolder
+	local HolderCorner = Instance.new("UICorner")
+	HolderCorner.CornerRadius = UDim.new(0, 8)
+	HolderCorner.Parent = Holder
 
-local PullUp2xHolder = Instance.new("Frame")
-PullUp2xHolder.Name = "Auto2xPullUpHolder"
-PullUp2xHolder.Size = UDim2.new(1, -20, 0, 45)
-PullUp2xHolder.Position = UDim2.new(0, 10, 0, 65)
-PullUp2xHolder.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
-PullUp2xHolder.BorderSizePixel = 0
-PullUp2xHolder.Parent = FramPage
+	local HolderStroke = Instance.new("UIStroke")
+	HolderStroke.Color = Color3.fromRGB(255, 255, 255)
+	HolderStroke.Thickness = 1.2
+	HolderStroke.Parent = Holder
+	ApplyRainbowGradient(HolderStroke, rotOffset)
 
-local PullUp2xCorner = Instance.new("UICorner")
-PullUp2xCorner.CornerRadius = UDim.new(0, 8)
-PullUp2xCorner.Parent = PullUp2xHolder
+	local HeaderClickBtn = Instance.new("TextButton")
+	HeaderClickBtn.Name = "DropdownHeaderBtn"
+	HeaderClickBtn.Size = UDim2.new(1, 0, 0, HEADER_HEIGHT)
+	HeaderClickBtn.Position = UDim2.new(0, 0, 0, 0)
+	HeaderClickBtn.BackgroundTransparency = 1
+	HeaderClickBtn.Text = ""
+	HeaderClickBtn.AutoButtonColor = false
+	HeaderClickBtn.Parent = Holder
 
-local PullUp2xStroke = Instance.new("UIStroke")
-PullUp2xStroke.Color = Color3.fromRGB(255, 255, 255)
-PullUp2xStroke.Thickness = 1.2
-PullUp2xStroke.Parent = PullUp2xHolder
-ApplyRainbowGradient(PullUp2xStroke, 90)
+	local HeaderTitleLbl = Instance.new("TextLabel")
+	HeaderTitleLbl.Name = namePrefix .. "HeaderLabel"
+	HeaderTitleLbl.Size = UDim2.new(1, -52, 1, 0)
+	HeaderTitleLbl.Position = UDim2.new(0, 14, 0, 0)
+	HeaderTitleLbl.BackgroundTransparency = 1
+	HeaderTitleLbl.Text = headerTitleText
+	HeaderTitleLbl.TextColor3 = Color3.fromRGB(240, 240, 248)
+	HeaderTitleLbl.Font = Enum.Font.GothamBold
+	HeaderTitleLbl.TextSize = 14
+	HeaderTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	HeaderTitleLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	HeaderTitleLbl.Parent = HeaderClickBtn
 
-local PullUp2xLabel = Instance.new("TextLabel")
-PullUp2xLabel.Name = "Auto2xPullUpLabel"
-PullUp2xLabel.Size = UDim2.new(0, 200, 1, 0)
-PullUp2xLabel.Position = UDim2.new(0, 15, 0, 0)
-PullUp2xLabel.BackgroundTransparency = 1
-PullUp2xLabel.Text = "AUTO 2X PULL-UP"
-PullUp2xLabel.TextColor3 = Color3.fromRGB(240, 240, 248)
-PullUp2xLabel.Font = Enum.Font.GothamBold
-PullUp2xLabel.TextSize = 14
-PullUp2xLabel.TextXAlignment = Enum.TextXAlignment.Left
-PullUp2xLabel.Parent = PullUp2xHolder
+	local ArrowIndicator = Instance.new("TextLabel")
+	ArrowIndicator.Name = "ArrowIndicator"
+	ArrowIndicator.Size = UDim2.new(0, 24, 0, 24)
+	ArrowIndicator.Position = UDim2.new(1, -34, 0.5, -12)
+	ArrowIndicator.BackgroundColor3 = Color3.fromRGB(38, 35, 50)
+	ArrowIndicator.Text = "v"
+	ArrowIndicator.TextColor3 = Color3.fromRGB(225, 225, 245)
+	ArrowIndicator.Font = Enum.Font.GothamBold
+	ArrowIndicator.TextSize = 12
+	ArrowIndicator.Parent = HeaderClickBtn
 
-local VisualPage = TabFrames["VISUAL"]
+	local ArrowCorner = Instance.new("UICorner")
+	ArrowCorner.CornerRadius = UDim.new(0, 6)
+	ArrowCorner.Parent = ArrowIndicator
 
-local VisualScroll = Instance.new("ScrollingFrame")
-VisualScroll.Name = "VisualScroll"
-VisualScroll.Size = UDim2.new(1, -12, 1, -12)
-VisualScroll.Position = UDim2.new(0, 6, 0, 6)
-VisualScroll.BackgroundTransparency = 1
-VisualScroll.BorderSizePixel = 0
-VisualScroll.ScrollBarThickness = 4
-VisualScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 130, 180)
-VisualScroll.CanvasSize = UDim2.new(0, 0, 0, 224)
-VisualScroll.Parent = VisualPage
+	local DropdownContent = Instance.new("Frame")
+	DropdownContent.Name = "DropdownContent"
+	DropdownContent.Size = UDim2.new(1, -20, 0, 58)
+	DropdownContent.Position = UDim2.new(0, 10, 0, HEADER_HEIGHT + 4)
+	DropdownContent.BackgroundColor3 = Color3.fromRGB(20, 18, 27)
+	DropdownContent.BorderSizePixel = 0
+	DropdownContent.Visible = false
+	DropdownContent.Parent = Holder
 
-local VisualLayout = Instance.new("UIListLayout")
-VisualLayout.Padding = UDim.new(0, 8)
-VisualLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-VisualLayout.SortOrder = Enum.SortOrder.LayoutOrder
-VisualLayout.Parent = VisualScroll
+	local ContentCorner = Instance.new("UICorner")
+	ContentCorner.CornerRadius = UDim.new(0, 6)
+	ContentCorner.Parent = DropdownContent
 
-local VisualPad = Instance.new("UIPadding")
-VisualPad.PaddingTop = UDim.new(0, 4)
-VisualPad.PaddingBottom = UDim.new(0, 4)
-VisualPad.Parent = VisualScroll
+	local ContentStroke = Instance.new("UIStroke")
+	ContentStroke.Color = Color3.fromRGB(60, 56, 80)
+	ContentStroke.Thickness = 1
+	ContentStroke.Parent = DropdownContent
 
-local function CreateVisualRow(titleText, rotOffset, onToggle)
-	local Row = Instance.new("Frame")
-	Row.Name = titleText:gsub("%s+", "_") .. "_Row"
-	Row.Size = UDim2.new(1, -12, 0, 44)
-	Row.BackgroundColor3 = Color3.fromRGB(28, 26, 36)
-	Row.BorderSizePixel = 0
-	Row.Parent = VisualScroll
+	local ToggleRow = Instance.new("Frame")
+	ToggleRow.Name = "ToggleRow"
+	ToggleRow.Size = UDim2.new(1, 0, 0, 34)
+	ToggleRow.Position = UDim2.new(0, 0, 0, 0)
+	ToggleRow.BackgroundTransparency = 1
+	ToggleRow.Parent = DropdownContent
 
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0, 8)
-	Corner.Parent = Row
+	local InnerToggleLbl = Instance.new("TextLabel")
+	InnerToggleLbl.Name = "InnerToggleLabel"
+	InnerToggleLbl.Size = UDim2.new(1, -85, 1, 0)
+	InnerToggleLbl.Position = UDim2.new(0, 10, 0, 0)
+	InnerToggleLbl.BackgroundTransparency = 1
+	InnerToggleLbl.Text = innerToggleTitle
+	InnerToggleLbl.TextColor3 = Color3.fromRGB(235, 235, 248)
+	InnerToggleLbl.Font = Enum.Font.GothamBold
+	InnerToggleLbl.TextSize = 12
+	InnerToggleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	InnerToggleLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	InnerToggleLbl.Parent = ToggleRow
 
-	local Stroke = Instance.new("UIStroke")
-	Stroke.Color = Color3.fromRGB(255, 255, 255)
-	Stroke.Thickness = 1.2
-	Stroke.Parent = Row
-	ApplyRainbowGradient(Stroke, rotOffset)
-
-	local Lbl = Instance.new("TextLabel")
-	Lbl.Size = UDim2.new(1, -85, 1, 0)
-	Lbl.Position = UDim2.new(0, 14, 0, 0)
-	Lbl.BackgroundTransparency = 1
-	Lbl.Text = titleText
-	Lbl.TextColor3 = Color3.fromRGB(240, 240, 248)
-	Lbl.Font = Enum.Font.GothamBold
-	Lbl.TextSize = 14
-	Lbl.TextXAlignment = Enum.TextXAlignment.Left
-	Lbl.Parent = Row
-
-	local toggleObj = CreateModernToggle(Row, onToggle)
-	return Row, toggleObj
-end
-
-local function EnsureOwnerTitleGui(char)
-	if not TitleOwnerEnabled then
-		return
-	end
-	local anchorPart = char and (char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart"))
-	if not anchorPart then
-		return
-	end
-
-	if not OwnerBillboardGui or OwnerBillboardGui.Adornee ~= anchorPart then
-		DestroyOwnerTitleGui()
-
-		local bGui = Instance.new("BillboardGui")
-		bGui.Name = "LpzyxHub_OwnerTitleGui"
-		bGui.Adornee = anchorPart
-		bGui.AlwaysOnTop = true
-		bGui.MaxDistance = math.huge
-		bGui.StudsOffsetWorldSpace = Vector3.new(0, 2.75, 0)
-		bGui.Size = UDim2.fromOffset(180, 44)
-
-		local okGuiParent = pcall(function()
-			bGui.Parent = CoreGui
-		end)
-		if not okGuiParent then
-			bGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+	local InnerSwitch = CreateModernToggle(ToggleRow, function(isEnabled)
+		if onToggleChanged then
+			onToggleChanged(isEnabled)
 		end
-
-		local s2 = Instance.new("TextLabel")
-		s2.Name = "Depth3D"
-		s2.Size = UDim2.fromScale(1, 1)
-		s2.Position = UDim2.fromOffset(3, 4)
-		s2.Rotation = 0
-		s2.BackgroundTransparency = 1
-		s2.Text = "OWNER"
-		s2.TextColor3 = Color3.fromRGB(10, 10, 16)
-		s2.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		s2.TextStrokeTransparency = 0
-		s2.Font = Enum.Font.GothamBlack
-		s2.TextScaled = false
-		s2.TextSize = 26
-		s2.Parent = bGui
-
-		local s1 = Instance.new("TextLabel")
-		s1.Name = "Mid3D"
-		s1.Size = UDim2.fromScale(1, 1)
-		s1.Position = UDim2.fromOffset(1.5, 2)
-		s1.Rotation = 0
-		s1.BackgroundTransparency = 1
-		s1.Text = "OWNER"
-		s1.TextColor3 = Color3.fromRGB(35, 35, 48)
-		s1.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		s1.TextStrokeTransparency = 0
-		s1.Font = Enum.Font.GothamBlack
-		s1.TextScaled = false
-		s1.TextSize = 26
-		s1.Parent = bGui
-
-		local mainLbl = Instance.new("TextLabel")
-		mainLbl.Name = "OwnerText"
-		mainLbl.Size = UDim2.fromScale(1, 1)
-		mainLbl.Position = UDim2.fromOffset(0, 0)
-		mainLbl.Rotation = 0
-		mainLbl.BackgroundTransparency = 1
-		mainLbl.Text = "OWNER"
-		mainLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-		mainLbl.TextStrokeColor3 = Color3.fromRGB(18, 18, 24)
-		mainLbl.TextStrokeTransparency = 0
-		mainLbl.Font = Enum.Font.GothamBlack
-		mainLbl.TextScaled = false
-		mainLbl.TextSize = 26
-		mainLbl.Parent = bGui
-		ApplyRainbowGradient(mainLbl, 0)
-
-		OwnerBillboardGui = bGui
-		OwnerTitleLabel = mainLbl
-		OwnerShadowLabel = s1
-		OwnerShadow2Label = s2
-	end
-
-	local cam = workspace.CurrentCamera
-	if cam and OwnerBillboardGui then
-		local dist = math.max(4, (cam.CFrame.Position - anchorPart.Position).Magnitude)
-		local scaleFactor = math.clamp(16 / dist, 0.55, 1.15)
-		local w = math.floor(170 * scaleFactor)
-		local h = math.floor(42 * scaleFactor)
-		local fSize = math.clamp(math.floor(25 * scaleFactor), 15, 28)
-
-		local extraHeight = (anchorPart.Name == "Head") and 2.55 or 3.85
-		OwnerBillboardGui.Size = UDim2.fromOffset(w, h)
-		OwnerBillboardGui.StudsOffsetWorldSpace = Vector3.new(0, extraHeight + (dist * 0.015), 0)
-		if OwnerTitleLabel then
-			OwnerTitleLabel.Rotation = 0
-			OwnerTitleLabel.TextSize = fSize
-		end
-		if OwnerShadowLabel then
-			OwnerShadowLabel.Rotation = 0
-			OwnerShadowLabel.TextSize = fSize
-		end
-		if OwnerShadow2Label then
-			OwnerShadow2Label.Rotation = 0
-			OwnerShadow2Label.TextSize = fSize
-		end
-	end
-end
-
-local SKELETON_PAIRS_R15 = {
-	{ "Head", "UpperTorso" },
-	{ "UpperTorso", "LowerTorso" },
-	{ "UpperTorso", "LeftUpperArm" },
-	{ "LeftUpperArm", "LeftLowerArm" },
-	{ "LeftLowerArm", "LeftHand" },
-	{ "UpperTorso", "RightUpperArm" },
-	{ "RightUpperArm", "RightLowerArm" },
-	{ "RightLowerArm", "RightHand" },
-	{ "LowerTorso", "LeftUpperLeg" },
-	{ "LeftUpperLeg", "LeftLowerLeg" },
-	{ "LeftLowerLeg", "LeftFoot" },
-	{ "LowerTorso", "RightUpperLeg" },
-	{ "RightUpperLeg", "RightLowerLeg" },
-	{ "RightLowerLeg", "RightFoot" },
-}
-
-local SKELETON_PAIRS_R6 = {
-	{ "Head", "Torso" },
-	{ "Torso", "Left Arm" },
-	{ "Torso", "Right Arm" },
-	{ "Torso", "Left Leg" },
-	{ "Torso", "Right Leg" },
-}
-
-local BOX_SMOOTH_ALPHA = 0.45
-
-local function GetCharacterBounds3D(char)
-	local okBox, cf, size = pcall(function()
-		return char:GetBoundingBox()
 	end)
 
-	if okBox and cf and size and size.Magnitude > 0.1 then
-		local halfH = math.clamp(size.Y * 0.5, 1.4, 5.5)
-		local center = cf.Position
-		local topWorld = Vector3.new(center.X, center.Y + halfH, center.Z)
-		local bottomWorld = Vector3.new(center.X, center.Y - halfH, center.Z)
-		return center, topWorld, bottomWorld, halfH * 2
+	local DescLbl = Instance.new("TextLabel")
+	DescLbl.Name = "DescriptionLabel"
+	DescLbl.Size = UDim2.new(1, -16, 0, 22)
+	DescLbl.Position = UDim2.new(0, 10, 0, 34)
+	DescLbl.BackgroundTransparency = 1
+	DescLbl.Text = descriptionText
+	DescLbl.TextColor3 = Color3.fromRGB(185, 185, 208)
+	DescLbl.Font = Enum.Font.GothamMedium
+	DescLbl.TextSize = 11
+	DescLbl.TextXAlignment = Enum.TextXAlignment.Left
+	DescLbl.TextWrapped = true
+	DescLbl.Parent = DropdownContent
+
+	local isOpen = false
+	local onLayoutRecalculate = nil
+
+	local function SetOpen(openState)
+		isOpen = openState
+		DropdownContent.Visible = isOpen
+		ArrowIndicator.Text = isOpen and "^" or "v"
+		local targetH = isOpen and EXPANDED_HEIGHT or HEADER_HEIGHT
+		TweenService:Create(Holder, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(1, -16, 0, targetH),
+		}):Play()
+		if onLayoutRecalculate then
+			onLayoutRecalculate()
+		end
 	end
 
-	local fallbackPart = char:FindFirstChild("HumanoidRootPart")
-		or char:FindFirstChild("UpperTorso")
-		or char:FindFirstChild("Torso")
-		or char:FindFirstChild("Head")
-		or char:FindFirstChildWhichIsA("BasePart")
+	HeaderClickBtn.MouseButton1Click:Connect(function()
+		SetOpen(not isOpen)
+	end)
 
-	if not fallbackPart then
-		return nil, nil, nil, nil
-	end
-
-	local pos = fallbackPart.Position
-	local topWorld = pos + Vector3.new(0, 2.75, 0)
-	local bottomWorld = pos - Vector3.new(0, 3.05, 0)
-	return pos, topWorld, bottomWorld, 5.8
-end
-
-local function ComputeCharacterBoxScreenRect(char, cam)
-	local centerWorld, topWorld, bottomWorld, worldHeight = GetCharacterBounds3D(char)
-	if not centerWorld then
-		return nil
-	end
-
-	local topScreen, topVis = cam:WorldToViewportPoint(topWorld)
-	local botScreen, botVis = cam:WorldToViewportPoint(bottomWorld)
-	local ctrScreen, ctrVis = cam:WorldToViewportPoint(centerWorld)
-
-	if ctrScreen.Z <= 0.05 and not topVis and not botVis and not ctrVis then
-		return nil
-	end
-
-	local boxHeight
-	if topScreen.Z > 0.05 and botScreen.Z > 0.05 then
-		boxHeight = math.abs(botScreen.Y - topScreen.Y)
-	else
-		local dist = math.max(1, ctrScreen.Z > 0.05 and ctrScreen.Z or (cam.CFrame.Position - centerWorld).Magnitude)
-		local fovRad = math.rad(cam.FieldOfView)
-		boxHeight = (worldHeight / (2 * dist * math.tan(fovRad * 0.5))) * cam.ViewportSize.Y
-	end
-
-	boxHeight = math.clamp(boxHeight, 16, 460)
-	local boxWidth = math.clamp(boxHeight * 0.42, 10, 220)
-
-	local centerX = (ctrScreen.Z > 0.05) and ctrScreen.X or ((topScreen.X + botScreen.X) * 0.5)
-	local centerY = (topScreen.Z > 0.05 and botScreen.Z > 0.05) and ((topScreen.Y + botScreen.Y) * 0.5) or ctrScreen.Y
-
-	return centerX - (boxWidth * 0.5), centerY - (boxHeight * 0.5), boxWidth, boxHeight
-end
-
-local function GetOrCreatePlayerEsp(plr)
-	if not HasDrawingApi then
-		return nil
-	end
-	local pack = PlayerEspDrawings[plr]
-	if pack then
-		return pack
-	end
-
-	local box = Drawing.new("Square")
-	box.Visible = false
-	box.Filled = false
-	box.Thickness = 1.8
-	box.Transparency = 1
-
-	local line = Drawing.new("Line")
-	line.Visible = false
-	line.Thickness = 1.5
-	line.Transparency = 1
-
-	local bones = {}
-	for _ = 1, #SKELETON_PAIRS_R15 do
-		local bLine = Drawing.new("Line")
-		bLine.Visible = false
-		bLine.Color = Color3.fromRGB(255, 255, 255)
-		bLine.Thickness = 1.5
-		bLine.Transparency = 1
-		table.insert(bones, bLine)
-	end
-
-	pack = {
-		box = box,
-		line = line,
-		bones = bones,
-		smoothRect = nil,
+	return {
+		Holder = Holder,
+		Switch = InnerSwitch,
+		SetOpen = SetOpen,
+		IsOpen = function()
+			return isOpen
+		end,
+		SetOnLayoutRecalculate = function(fn)
+			onLayoutRecalculate = fn
+		end,
+		SetOnToggleChanged = function(fn)
+			onToggleChanged = fn
+		end,
 	}
-	PlayerEspDrawings[plr] = pack
-	return pack
 end
-
-local function HidePlayerEspPack(pack)
-	if not pack then
-		return
-	end
-	pack.smoothRect = nil
-	if pack.box then
-		pack.box.Visible = false
-	end
-	if pack.line then
-		pack.line.Visible = false
-	end
-	if pack.bones then
-		for _, b in ipairs(pack.bones) do
-			b.Visible = false
-		end
-	end
-end
-
-local function UpdateVisualEspFrame(t)
-	if not HasDrawingApi then
-		return
-	end
-	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
-		ClearAllEsp()
-		return
-	end
-
-	local cam = workspace.CurrentCamera
-	if not cam then
-		return
-	end
-
-	local viewSize = cam.ViewportSize
-	local lineOrigin = Vector2.new(viewSize.X * 0.5, viewSize.Y)
-
-	for plr in pairs(PlayerEspDrawings) do
-		if plr.Parent ~= Players or plr == LocalPlayer then
-			ClearPlayerEsp(plr)
-		end
-	end
-
-	for idx, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer then
-			local char = plr.Character
-			local hum = char and char:FindFirstChildOfClass("Humanoid")
-
-			local pack = GetOrCreatePlayerEsp(plr)
-			if not char or char.Parent ~= workspace or (hum and hum.Health <= 0) then
-				HidePlayerEspPack(pack)
-			else
-				local centerWorld, _, bottomWorld = GetCharacterBounds3D(char)
-				if not centerWorld then
-					HidePlayerEspPack(pack)
-				else
-					local ctrScreen, ctrVis = cam:WorldToViewportPoint(centerWorld)
-					if ctrScreen.Z <= 0.05 and not ctrVis then
-						HidePlayerEspPack(pack)
-					else
-						local rainbowCol = GetRainbowColorAt((t * 0.45) + (idx * 0.14))
-
-						if EspBoxEnabled and pack.box then
-							local rx, ry, rw, rh = ComputeCharacterBoxScreenRect(char, cam)
-							if not rx then
-								pack.smoothRect = nil
-								pack.box.Visible = false
-							else
-								if not pack.smoothRect then
-									pack.smoothRect = { x = rx, y = ry, w = rw, h = rh }
-								else
-									local sr = pack.smoothRect
-									sr.x = sr.x + ((rx - sr.x) * BOX_SMOOTH_ALPHA)
-									sr.y = sr.y + ((ry - sr.y) * BOX_SMOOTH_ALPHA)
-									sr.w = sr.w + ((rw - sr.w) * BOX_SMOOTH_ALPHA)
-									sr.h = sr.h + ((rh - sr.h) * BOX_SMOOTH_ALPHA)
-								end
-
-								local sr = pack.smoothRect
-								pack.box.Size = Vector2.new(sr.w, sr.h)
-								pack.box.Position = Vector2.new(sr.x, sr.y)
-								pack.box.Color = rainbowCol
-								pack.box.Visible = true
-							end
-						elseif pack.box then
-							pack.smoothRect = nil
-							pack.box.Visible = false
-						end
-
-						if EspLineEnabled and pack.line then
-							local botScreen, botVis = cam:WorldToViewportPoint(bottomWorld)
-							if botScreen.Z > 0.05 and (botVis or ctrVis) then
-								pack.line.From = lineOrigin
-								pack.line.To = Vector2.new(botScreen.X, botScreen.Y)
-								pack.line.Color = rainbowCol
-								pack.line.Visible = true
-							else
-								pack.line.Visible = false
-							end
-						elseif pack.line then
-							pack.line.Visible = false
-						end
-
-						if EspSkeletonEnabled and pack.bones then
-							local pairsList = char:FindFirstChild("UpperTorso") and SKELETON_PAIRS_R15 or SKELETON_PAIRS_R6
-							for bIdx, bLine in ipairs(pack.bones) do
-								local pair = pairsList[bIdx]
-								local pA = pair and char:FindFirstChild(pair[1])
-								local pB = pair and char:FindFirstChild(pair[2])
-								if pA and pB and pA:IsA("BasePart") and pB:IsA("BasePart") then
-									local boneDist = (pA.Position - pB.Position).Magnitude
-									local nearCenter = (pA.Position - centerWorld).Magnitude <= 8 and (pB.Position - centerWorld).Magnitude <= 8
-									if boneDist > 0.05 and boneDist <= 8 and nearCenter then
-										local sA, vA = cam:WorldToViewportPoint(pA.Position)
-										local sB, vB = cam:WorldToViewportPoint(pB.Position)
-										if sA.Z > 0.05 and sB.Z > 0.05 and (vA or vB) then
-											bLine.From = Vector2.new(sA.X, sA.Y)
-											bLine.To = Vector2.new(sB.X, sB.Y)
-											bLine.Color = Color3.fromRGB(255, 255, 255)
-											bLine.Visible = true
-										else
-											bLine.Visible = false
-										end
-									else
-										bLine.Visible = false
-									end
-								else
-									bLine.Visible = false
-								end
-							end
-						elseif pack.bones then
-							for _, b in ipairs(pack.bones) do
-								b.Visible = false
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
-CreateVisualRow("ESP BOX", 15, function(isOn)
-	EspBoxEnabled = isOn
-	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
-		ClearAllEsp()
-	end
-end)
-
-CreateVisualRow("ESP LINE", 45, function(isOn)
-	EspLineEnabled = isOn
-	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
-		ClearAllEsp()
-	end
-end)
-
-CreateVisualRow("ESP SEKELETON", 75, function(isOn)
-	EspSkeletonEnabled = isOn
-	if not EspBoxEnabled and not EspLineEnabled and not EspSkeletonEnabled then
-		ClearAllEsp()
-	end
-end)
-
-CreateVisualRow("TITLE OWNER", 105, function(isOn)
-	TitleOwnerEnabled = isOn
-	if TitleOwnerEnabled then
-		EnsureOwnerTitleGui(LocalPlayer.Character)
-	else
-		DestroyOwnerTitleGui()
-	end
-end)
-
-Players.PlayerRemoving:Connect(function(plr)
-	ClearPlayerEsp(plr)
-end)
-
-LocalPlayer.CharacterAdded:Connect(function(newChar)
-	if TitleOwnerEnabled then
-		task.wait(0.25)
-		EnsureOwnerTitleGui(newChar)
-	end
-end)
 
 local AutoThrowEnabled = false
 local CachedThrowCFrame = nil
@@ -1163,7 +745,90 @@ local Cached2xPrompts = {}
 local CachedStopPullUpGuis = {}
 local Last2xRescan = 0
 
+local function StopAutoThrowCompletely()
+	AutoThrowEnabled = false
+	IsTriggerBusy = false
+	LastTriggerTime = 0
+	CachedThrowCFrame = nil
+	CachedZonePrompts = {}
+	CachedLuckLabels = {}
+	CachedSkipLabels = {}
+	CurrentRunTarget = nil
+	NextRunPickTime = 0
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if hum and hrp then
+		pcall(function()
+			hum:MoveTo(hrp.Position)
+		end)
+	end
+end
+
+local function StopAutoTap2xCompletely()
+	Auto2xPullUpEnabled = false
+	Is2xBusy = false
+	Last2xClaimTime = 0
+	Cached2xGuis = {}
+	Cached2xPrompts = {}
+	CachedStopPullUpGuis = {}
+	Last2xRescan = 0
+end
+
+local AutoThrowSection = CreateFeatureDropdownWithInnerToggle(
+	"AutoThrow",
+	"AUTO THROW",
+	"AUTO THROW",
+	"This feature automatically throws food.",
+	12,
+	30,
+	function(isEnabled)
+		if isEnabled then
+			StopAutoThrowCompletely()
+			AutoThrowEnabled = true
+		else
+			StopAutoThrowCompletely()
+		end
+	end
+)
+
+local AutoTap2xPullUpSection = CreateFeatureDropdownWithInnerToggle(
+	"AutoTap2xPullUp",
+	"AUTO TAP 2X PULL-UP",
+	"AUTO TAP 2X PULL-UP",
+	"This feature will automatically clamp 2x pull-ups.",
+	65,
+	90,
+	function(isEnabled)
+		if isEnabled then
+			StopAutoTap2xCompletely()
+			Auto2xPullUpEnabled = true
+		else
+			StopAutoTap2xCompletely()
+		end
+	end
+)
+
+local function RecalculateFramLayout()
+	local baseTop = 12
+	local gap = 8
+	local h1 = AutoThrowSection.IsOpen() and 114 or 45
+	AutoThrowSection.Holder.Position = UDim2.new(0, 8, 0, baseTop)
+
+	local nextY = baseTop + h1 + gap
+	AutoTap2xPullUpSection.Holder.Position = UDim2.new(0, 8, 0, nextY)
+
+	local h2 = AutoTap2xPullUpSection.IsOpen() and 114 or 45
+	FramScroll.CanvasSize = UDim2.new(0, 0, 0, nextY + h2 + 16)
+end
+
+AutoThrowSection.SetOnLayoutRecalculate(RecalculateFramLayout)
+AutoTap2xPullUpSection.SetOnLayoutRecalculate(RecalculateFramLayout)
+
 local function SilentBackgroundClick(x, y)
+	if not AutoThrowEnabled and not Auto2xPullUpEnabled then
+		return
+	end
 	pcall(function()
 		VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, nil, 0)
 		VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, nil, 0)
@@ -1246,6 +911,9 @@ local function ResolveClickableGui(obj)
 end
 
 local function Refresh2xCache(hrp)
+	if not Auto2xPullUpEnabled then
+		return
+	end
 	local foundGuis = {}
 	local foundPrompts = {}
 	local foundStopGuis = {}
@@ -1319,7 +987,7 @@ local function Refresh2xCache(hrp)
 end
 
 local function IsDoingPullUp(char, hrp, hum)
-	if not char or not hrp or not hum or hum.Health <= 0 then
+	if not Auto2xPullUpEnabled or not char or not hrp or not hum or hum.Health <= 0 then
 		return false
 	end
 
@@ -1354,6 +1022,9 @@ local function IsDoingPullUp(char, hrp, hum)
 end
 
 local function Detect2xTarget(hrp)
+	if not Auto2xPullUpEnabled then
+		return nil, nil
+	end
 	local now = os.clock()
 	if (#Cached2xGuis == 0 and #Cached2xPrompts == 0) or (now - Last2xRescan) >= 1.5 then
 		Refresh2xCache(hrp)
@@ -1385,6 +1056,9 @@ local function Detect2xTarget(hrp)
 end
 
 local function Trigger2xWithProximity(targetGui, targetPrompt)
+	if not Auto2xPullUpEnabled then
+		return
+	end
 	if targetPrompt and targetPrompt.Parent and targetPrompt.Enabled then
 		HidePromptVisual(targetPrompt)
 		pcall(function()
@@ -1396,6 +1070,10 @@ local function Trigger2xWithProximity(targetGui, targetPrompt)
 				targetPrompt:InputHoldEnd()
 			end
 		end)
+	end
+
+	if not Auto2xPullUpEnabled then
+		return
 	end
 
 	if targetGui and targetGui:IsA("GuiObject") and IsGuiActuallyVisible(targetGui) and targetGui.AbsoluteSize.X > 0 and targetGui.AbsoluteSize.Y > 0 then
@@ -1424,6 +1102,9 @@ local function IsThrowLineColor(color)
 end
 
 local function BuildWorldCache(hrp)
+	if not AutoThrowEnabled then
+		return
+	end
 	local candidateParts = {}
 	local namedZones = {}
 	local prompts = {}
@@ -1516,6 +1197,9 @@ local function BuildWorldCache(hrp)
 end
 
 local function RefreshLuckLabelsCache()
+	if not AutoThrowEnabled then
+		return
+	end
 	local labels = {}
 	local skipLabels = {}
 	local roots = {}
@@ -1557,6 +1241,9 @@ local function RefreshLuckLabelsCache()
 end
 
 local function DetectSkipPromptText()
+	if not AutoThrowEnabled then
+		return nil
+	end
 	local now = os.clock()
 	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
 		RefreshLuckLabelsCache()
@@ -1575,6 +1262,9 @@ local function DetectSkipPromptText()
 end
 
 local function DetectPlusThrowNumber()
+	if not AutoThrowEnabled then
+		return nil
+	end
 	local now = os.clock()
 	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
 		RefreshLuckLabelsCache()
@@ -1609,7 +1299,7 @@ local function IsInThrowZone(hrp, zoneCFrame)
 end
 
 local function TeleportToZone(hrp, zoneCFrame)
-	if not hrp or not zoneCFrame then
+	if not AutoThrowEnabled or not hrp or not zoneCFrame then
 		return false
 	end
 	pcall(function()
@@ -1621,6 +1311,9 @@ local function TeleportToZone(hrp, zoneCFrame)
 end
 
 local function TriggerProximityOnce(hrp, skipGui)
+	if not AutoThrowEnabled then
+		return
+	end
 	local firedAny = false
 	for _, item in ipairs(CachedZonePrompts) do
 		local prompt = item.prompt
@@ -1641,6 +1334,10 @@ local function TriggerProximityOnce(hrp, skipGui)
 				break
 			end
 		end
+	end
+
+	if not AutoThrowEnabled then
+		return
 	end
 
 	if not firedAny and hrp then
@@ -1674,6 +1371,10 @@ local function TriggerProximityOnce(hrp, skipGui)
 		end
 	end
 
+	if not AutoThrowEnabled then
+		return
+	end
+
 	local x, y = nil, nil
 	if skipGui and skipGui:IsA("GuiObject") and skipGui.AbsoluteSize.X > 0 and skipGui.AbsoluteSize.Y > 0 then
 		x = skipGui.AbsolutePosition.X + (skipGui.AbsoluteSize.X * 0.5)
@@ -1696,6 +1397,9 @@ local function TriggerProximityOnce(hrp, skipGui)
 end
 
 local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
+	if not AutoThrowEnabled then
+		return
+	end
 	if allowPrompt and zoneCFrame and IsInThrowZone(hrp, zoneCFrame) then
 		for _, item in ipairs(CachedZonePrompts) do
 			local prompt = item.prompt
@@ -1717,6 +1421,10 @@ local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
 		end
 	end
 
+	if not AutoThrowEnabled then
+		return
+	end
+
 	local cam = workspace.CurrentCamera
 	if cam then
 		local x, y = cam.ViewportSize.X * 0.5, cam.ViewportSize.Y * 0.5
@@ -1725,7 +1433,7 @@ local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
 end
 
 local function StepAutoRunAnywhere(hum, hrp)
-	if not hum or not hrp then
+	if not AutoThrowEnabled or not hum or not hrp then
 		return
 	end
 
@@ -1757,10 +1465,9 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 
-	if TitleOwnerEnabled then
-		EnsureOwnerTitleGui(LocalPlayer.Character)
+	if not AutoThrowEnabled and not Auto2xPullUpEnabled then
+		return
 	end
-	UpdateVisualEspFrame(t)
 
 	local char = LocalPlayer.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -1778,7 +1485,9 @@ RunService.Heartbeat:Connect(function()
 				Is2xBusy = true
 				Last2xClaimTime = now
 				task.spawn(function()
-					Trigger2xWithProximity(target2xGui, target2xPrompt)
+					if Auto2xPullUpEnabled then
+						Trigger2xWithProximity(target2xGui, target2xPrompt)
+					end
 					task.wait(0.08)
 					Is2xBusy = false
 				end)
@@ -1804,7 +1513,9 @@ RunService.Heartbeat:Connect(function()
 		LastTriggerTime = now
 
 		task.spawn(function()
-			TriggerProximityOnce(hrp, skipGui)
+			if AutoThrowEnabled then
+				TriggerProximityOnce(hrp, skipGui)
+			end
 			task.wait(0.12)
 			IsTriggerBusy = false
 		end)
@@ -1817,11 +1528,13 @@ RunService.Heartbeat:Connect(function()
 		LastTriggerTime = now
 
 		task.spawn(function()
-			local inZone = IsInThrowZone(hrp, CachedThrowCFrame)
-			if not inZone and CachedThrowCFrame then
-				inZone = TeleportToZone(hrp, CachedThrowCFrame)
+			if AutoThrowEnabled then
+				local inZone = IsInThrowZone(hrp, CachedThrowCFrame)
+				if not inZone and CachedThrowCFrame then
+					inZone = TeleportToZone(hrp, CachedThrowCFrame)
+				end
+				FireThrowNow(hrp, CachedThrowCFrame, inZone)
 			end
-			FireThrowNow(hrp, CachedThrowCFrame, inZone)
 			task.wait(0.08)
 			IsTriggerBusy = false
 		end)
@@ -1829,23 +1542,23 @@ RunService.Heartbeat:Connect(function()
 end)
 
 task.spawn(function()
-	while true do
+	while ScreenGui and ScreenGui.Parent do
 		if AutoThrowEnabled then
 			local char = LocalPlayer.Character
 			local hrp = char and char:FindFirstChild("HumanoidRootPart")
 			local hum = char and char:FindFirstChildOfClass("Humanoid")
 
-			if hrp and hum and hum.Health > 0 then
+			if hrp and hum and hum.Health > 0 and AutoThrowEnabled then
 				if not CachedThrowCFrame then
 					BuildWorldCache(hrp)
 				end
 
-				if not IsTriggerBusy then
+				if not IsTriggerBusy and AutoThrowEnabled then
 					if CachedThrowCFrame and not IsInThrowZone(hrp, CachedThrowCFrame) then
 						TeleportToZone(hrp, CachedThrowCFrame)
 					end
 
-					if hrp.AssemblyLinearVelocity.Magnitude < 2.5 or not CurrentRunTarget or os.clock() >= NextRunPickTime then
+					if AutoThrowEnabled and (hrp.AssemblyLinearVelocity.Magnitude < 2.5 or not CurrentRunTarget or os.clock() >= NextRunPickTime) then
 						StepAutoRunAnywhere(hum, hrp)
 					end
 				end
@@ -1855,44 +1568,5 @@ task.spawn(function()
 			NextRunPickTime = 0
 		end
 		task.wait(0.2)
-	end
-end)
-
-local AutoThrowSwitch = CreateModernToggle(ToggleHolder, function(isEnabled)
-	AutoThrowEnabled = isEnabled
-	if AutoThrowEnabled then
-		IsTriggerBusy = false
-		LastTriggerTime = 0
-		CachedThrowCFrame = nil
-		CachedZonePrompts = {}
-		CachedLuckLabels = {}
-		CachedSkipLabels = {}
-		CurrentRunTarget = nil
-		NextRunPickTime = 0
-	else
-		IsTriggerBusy = false
-		CachedThrowCFrame = nil
-		CachedZonePrompts = {}
-		CachedLuckLabels = {}
-		CachedSkipLabels = {}
-		CurrentRunTarget = nil
-		NextRunPickTime = 0
-	end
-end)
-
-local PullUp2xSwitch = CreateModernToggle(PullUp2xHolder, function(isEnabled)
-	Auto2xPullUpEnabled = isEnabled
-	if Auto2xPullUpEnabled then
-		Is2xBusy = false
-		Last2xClaimTime = 0
-		Cached2xGuis = {}
-		Cached2xPrompts = {}
-		CachedStopPullUpGuis = {}
-		Last2xRescan = 0
-	else
-		Is2xBusy = false
-		Cached2xGuis = {}
-		Cached2xPrompts = {}
-		CachedStopPullUpGuis = {}
 	end
 end)
