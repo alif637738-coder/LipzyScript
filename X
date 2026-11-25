@@ -38,23 +38,6 @@ local function ApplyRainbowGradient(parent, rotationOffset)
 	return grad
 end
 
-local function GetRainbowColorAt(phase)
-	local p = phase % 1
-	if p < 0 then
-		p += 1
-	end
-	local keypoints = RainbowSequence.Keypoints
-	for i = 1, #keypoints - 1 do
-		local k1 = keypoints[i]
-		local k2 = keypoints[i + 1]
-		if p >= k1.Time and p <= k2.Time then
-			local alpha = (k2.Time - k1.Time) > 0 and ((p - k1.Time) / (k2.Time - k1.Time)) or 0
-			return k1.Value:Lerp(k2.Value, alpha)
-		end
-	end
-	return keypoints[1].Value
-end
-
 local function CreateModernToggle(parent, onChanged)
 	local Track = Instance.new("TextButton")
 	Track.Name = "ModernToggleTrack"
@@ -149,6 +132,119 @@ local function CreateModernToggle(parent, onChanged)
 	}
 end
 
+local function CreateCheckboxRow(parent, yPos, titleText, onChanged)
+	local RowFrame = Instance.new("Frame")
+	RowFrame.Name = titleText:gsub("%s+", "") .. "CheckboxRow"
+	RowFrame.Size = UDim2.new(1, -16, 0, 25)
+	RowFrame.Position = UDim2.new(0, 8, 0, yPos)
+	RowFrame.BackgroundColor3 = Color3.fromRGB(26, 24, 35)
+	RowFrame.BorderSizePixel = 0
+	RowFrame.Parent = parent
+
+	local RowCorner = Instance.new("UICorner")
+	RowCorner.CornerRadius = UDim.new(0, 6)
+	RowCorner.Parent = RowFrame
+
+	local RowStroke = Instance.new("UIStroke")
+	RowStroke.Color = Color3.fromRGB(52, 48, 70)
+	RowStroke.Thickness = 1
+	RowStroke.Parent = RowFrame
+
+	local Box = Instance.new("Frame")
+	Box.Name = "CheckboxBox"
+	Box.Size = UDim2.new(0, 15, 0, 15)
+	Box.Position = UDim2.new(0, 8, 0.5, -7.5)
+	Box.BackgroundColor3 = Color3.fromRGB(36, 33, 48)
+	Box.BorderSizePixel = 0
+	Box.Parent = RowFrame
+
+	local BoxCorner = Instance.new("UICorner")
+	BoxCorner.CornerRadius = UDim.new(0, 4)
+	BoxCorner.Parent = Box
+
+	local BoxStroke = Instance.new("UIStroke")
+	BoxStroke.Color = Color3.fromRGB(120, 115, 145)
+	BoxStroke.Thickness = 1.2
+	BoxStroke.Parent = Box
+
+	local BoxGrad = ApplyRainbowGradient(Box, 45)
+	BoxGrad.Enabled = false
+
+	local CheckMark = Instance.new("TextLabel")
+	CheckMark.Name = "CheckMark"
+	CheckMark.Size = UDim2.new(1, 0, 1, 0)
+	CheckMark.BackgroundTransparency = 1
+	CheckMark.Text = "✓"
+	CheckMark.TextColor3 = Color3.fromRGB(15, 15, 22)
+	CheckMark.Font = Enum.Font.GothamBold
+	CheckMark.TextSize = 11
+	CheckMark.Visible = false
+	CheckMark.Parent = Box
+
+	local TitleLbl = Instance.new("TextLabel")
+	TitleLbl.Name = "CheckboxTitle"
+	TitleLbl.Size = UDim2.new(1, -76, 1, 0)
+	TitleLbl.Position = UDim2.new(0, 29, 0, 0)
+	TitleLbl.BackgroundTransparency = 1
+	TitleLbl.Text = titleText
+	TitleLbl.TextColor3 = Color3.fromRGB(238, 238, 248)
+	TitleLbl.Font = Enum.Font.GothamBold
+	TitleLbl.TextSize = 11
+	TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	TitleLbl.Parent = RowFrame
+
+	local StatusTag = Instance.new("TextLabel")
+	StatusTag.Name = "StatusTag"
+	StatusTag.Size = UDim2.new(0, 38, 1, 0)
+	StatusTag.Position = UDim2.new(1, -44, 0, 0)
+	StatusTag.BackgroundTransparency = 1
+	StatusTag.Text = "OFF"
+	StatusTag.TextColor3 = Color3.fromRGB(145, 145, 168)
+	StatusTag.Font = Enum.Font.GothamBold
+	StatusTag.TextSize = 10
+	StatusTag.TextXAlignment = Enum.TextXAlignment.Right
+	StatusTag.Parent = RowFrame
+
+	local ClickBtn = Instance.new("TextButton")
+	ClickBtn.Name = "CheckboxClickBtn"
+	ClickBtn.Size = UDim2.new(1, 0, 1, 0)
+	ClickBtn.BackgroundTransparency = 1
+	ClickBtn.Text = ""
+	ClickBtn.AutoButtonColor = false
+	ClickBtn.Parent = RowFrame
+
+	local checked = false
+	local function ApplyCheckState(isChecked)
+		checked = isChecked
+		CheckMark.Visible = checked
+		BoxGrad.Enabled = checked
+		Box.BackgroundColor3 = checked and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(36, 33, 48)
+		BoxStroke.Color = checked and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(120, 115, 145)
+		RowStroke.Color = checked and Color3.fromRGB(125, 115, 185) or Color3.fromRGB(52, 48, 70)
+		StatusTag.Text = checked and "ON" or "OFF"
+		StatusTag.TextColor3 = checked and Color3.fromRGB(115, 255, 165) or Color3.fromRGB(145, 145, 168)
+	end
+
+	ClickBtn.MouseButton1Click:Connect(function()
+		ApplyCheckState(not checked)
+		if onChanged then
+			onChanged(checked)
+		end
+	end)
+
+	return {
+		GetChecked = function()
+			return checked
+		end,
+		SetChecked = function(val, fireCallback)
+			ApplyCheckState(val)
+			if fireCallback and onChanged then
+				onChanged(checked)
+			end
+		end,
+	}
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = UI_Name
 ScreenGui.ResetOnSpawn = false
@@ -226,7 +322,603 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseBtn
 
+local AutoThrowEnabled = false
+local LockedCameraCFrame = nil
+local LockedCameraFOV = nil
+local RemoveCharacterEnabled = false
+local CameraLockBound = false
+local CAMERA_BIND_NAME = "LpzyxRemoveCharacterCameraLock"
+local CameraWatchConns = {}
+local HiddenBlackoutGuis = {}
+local BlackoutWatchConns = {}
+local LastBlackoutScan = 0
+local CachedThrowCFrame = nil
+
+-- Penyimpanan sementara hewan di game & karakter saat Remove Character ON
+local HiddenAnimalsFolder = Instance.new("Folder")
+HiddenAnimalsFolder.Name = "LpzyxHiddenAnimalsCache"
+HiddenAnimalsFolder.Parent = workspace:FindFirstChildOfClass("Camera") or workspace
+
+local RemovedAnimalRecords = {}
+local SavedCharAppearance = {}
+local SavedCharRootCFrame = nil
+local SavedCharRootAnchored = nil
+local AnimalWatcherConn = nil
+local CharWatcherConns = {}
+
+-- Arah masuk ke lorong sesuai Foto 2 (jika nil, otomatis ambil arah kamera saat lock diaktifkan)
+local CORRIDOR_DIR = nil
+local LOCK_CAM_HEIGHT = 5.5
+local LOCK_BACK_DIST = 9.0
+local LOCK_LOOK_DIST = 28.0
+local LOCK_FOCUS_HEIGHT = 1.6
+
+local function GetCorridorDirection(cam)
+	if CORRIDOR_DIR and CORRIDOR_DIR.Magnitude > 0.01 then
+		local flat = Vector3.new(CORRIDOR_DIR.X, 0, CORRIDOR_DIR.Z)
+		if flat.Magnitude > 0.01 then
+			return flat.Unit
+		end
+	end
+	if cam then
+		local look = cam.CFrame.LookVector
+		local flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude > 0.01 then
+			return flat.Unit
+		end
+	end
+	return Vector3.new(0, 0, -1)
+end
+
+local function IsPlayerCharacterModel(inst)
+	if not inst or not inst:IsA("Model") then
+		return false
+	end
+	if Players:GetPlayerFromCharacter(inst) ~= nil then
+		return true
+	end
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Character == inst then
+			return true
+		end
+	end
+	return false
+end
+
+local function IsAnimalCandidateModel(model)
+	if not model or not model:IsA("Model") then
+		return false
+	end
+	if model == HiddenAnimalsFolder or model:IsDescendantOf(HiddenAnimalsFolder) then
+		return false
+	end
+	if IsPlayerCharacterModel(model) then
+		return false
+	end
+	if model:FindFirstChildOfClass("Humanoid") then
+		return true
+	end
+	local n = model.Name:lower()
+	if n:find("pet", 1, true)
+		or n:find("animal", 1, true)
+		or n:find("hewan", 1, true)
+		or n:find("beast", 1, true)
+		or n:find("creature", 1, true)
+		or n:find("companion", 1, true)
+		or n:find("buddy", 1, true)
+		or n:find("minion", 1, true) then
+		return true
+	end
+	if model:GetAttribute("Pet") == true or model:GetAttribute("IsPet") == true or model:GetAttribute("Animal") == true then
+		return true
+	end
+	return false
+end
+
+local function HideSingleAnimalModel(model)
+	if not model or not model.Parent or RemovedAnimalRecords[model] then
+		return
+	end
+	if not IsAnimalCandidateModel(model) then
+		return
+	end
+	local origParent = model.Parent
+	RemovedAnimalRecords[model] = {
+		Parent = origParent,
+	}
+	pcall(function()
+		model.Parent = HiddenAnimalsFolder
+	end)
+end
+
+local function RemoveAllGameAnimals()
+	for _, desc in ipairs(workspace:GetDescendants()) do
+		if desc:IsA("Model") then
+			HideSingleAnimalModel(desc)
+		end
+	end
+	if not AnimalWatcherConn then
+		AnimalWatcherConn = workspace.DescendantAdded:Connect(function(desc)
+			if RemoveCharacterEnabled and desc:IsA("Model") then
+				task.defer(function()
+					if RemoveCharacterEnabled then
+						HideSingleAnimalModel(desc)
+					end
+				end)
+			end
+		end)
+	end
+end
+
+local function RestoreAllGameAnimals()
+	if AnimalWatcherConn then
+		pcall(function()
+			AnimalWatcherConn:Disconnect()
+		end)
+		AnimalWatcherConn = nil
+	end
+	for model, rec in pairs(RemovedAnimalRecords) do
+		if model and rec and rec.Parent and rec.Parent.Parent then
+			pcall(function()
+				model.Parent = rec.Parent
+			end)
+		end
+	end
+	RemovedAnimalRecords = {}
+end
+
+local function ClearCharWatchers()
+	for _, conn in ipairs(CharWatcherConns) do
+		pcall(function()
+			conn:Disconnect()
+		end)
+	end
+	CharWatcherConns = {}
+end
+
+local function HideLocalCharacterVisuals(char)
+	if not char then
+		return
+	end
+	for _, desc in ipairs(char:GetDescendants()) do
+		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
+			if SavedCharAppearance[desc] == nil then
+				SavedCharAppearance[desc] = {
+					Transparency = desc.Transparency,
+					LocalTransparencyModifier = desc:IsA("BasePart") and desc.LocalTransparencyModifier or nil,
+				}
+			end
+			pcall(function()
+				desc.Transparency = 1
+				if desc:IsA("BasePart") then
+					desc.LocalTransparencyModifier = 1
+				end
+			end)
+		elseif desc:IsA("BillboardGui") or desc:IsA("SurfaceGui") then
+			if SavedCharAppearance[desc] == nil then
+				SavedCharAppearance[desc] = {
+					Enabled = desc.Enabled,
+				}
+			end
+			pcall(function()
+				desc.Enabled = false
+			end)
+		elseif desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+			if SavedCharAppearance[desc] == nil then
+				SavedCharAppearance[desc] = {
+					Enabled = desc.Enabled,
+				}
+			end
+			pcall(function()
+				desc.Enabled = false
+			end)
+		end
+	end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		if SavedCharAppearance[hum] == nil then
+			SavedCharAppearance[hum] = {
+				DisplayDistanceType = hum.DisplayDistanceType,
+				HealthDisplayType = hum.HealthDisplayType,
+			}
+		end
+		pcall(function()
+			hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			hum.HealthDisplayType = Enum.HumanoidDisplayDistanceType.AlwaysOff
+		end)
+	end
+end
+
+local function ParkLocalCharacterOutOfView(char)
+	if not char then
+		return
+	end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp and hrp:IsA("BasePart") then
+		if SavedCharRootCFrame == nil then
+			SavedCharRootCFrame = hrp.CFrame
+			SavedCharRootAnchored = hrp.Anchored
+		end
+		pcall(function()
+			hrp.AssemblyLinearVelocity = Vector3.zero
+			hrp.AssemblyAngularVelocity = Vector3.zero
+			hrp.CFrame = hrp.CFrame * CFrame.new(0, -18, 0)
+		end)
+	end
+end
+
+local function ApplyCharacterRemoval()
+	local char = LocalPlayer.Character
+	if not char then
+		return
+	end
+	HideLocalCharacterVisuals(char)
+	ParkLocalCharacterOutOfView(char)
+
+	ClearCharWatchers()
+	table.insert(CharWatcherConns, char.DescendantAdded:Connect(function(desc)
+		if RemoveCharacterEnabled then
+			task.defer(function()
+				if RemoveCharacterEnabled and LocalPlayer.Character == char then
+					HideLocalCharacterVisuals(char)
+				end
+			end)
+		end
+	end))
+end
+
+local function RestoreLocalCharacter()
+	ClearCharWatchers()
+	local char = LocalPlayer.Character
+
+	for inst, prev in pairs(SavedCharAppearance) do
+		if inst and inst.Parent then
+			pcall(function()
+				if inst:IsA("BasePart") then
+					inst.Transparency = prev.Transparency
+					if prev.LocalTransparencyModifier ~= nil then
+						inst.LocalTransparencyModifier = prev.LocalTransparencyModifier
+					end
+				elseif inst:IsA("Decal") or inst:IsA("Texture") then
+					inst.Transparency = prev.Transparency
+				elseif inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") or inst:IsA("ParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") then
+					inst.Enabled = prev.Enabled
+				elseif inst:IsA("Humanoid") then
+					inst.DisplayDistanceType = prev.DisplayDistanceType
+					inst.HealthDisplayType = prev.HealthDisplayType
+				end
+			end)
+		end
+	end
+	SavedCharAppearance = {}
+
+	if char then
+		local hrp = char:FindFirstChild("HumanoidRootPart")
+		if hrp and hrp:IsA("BasePart") and SavedCharRootCFrame then
+			pcall(function()
+				hrp.AssemblyLinearVelocity = Vector3.zero
+				hrp.AssemblyAngularVelocity = Vector3.zero
+				hrp.CFrame = SavedCharRootCFrame
+				if SavedCharRootAnchored ~= nil then
+					hrp.Anchored = SavedCharRootAnchored
+				end
+			end)
+		end
+	end
+	SavedCharRootCFrame = nil
+	SavedCharRootAnchored = nil
+end
+
+local function SyncCharacterAndAnimalRemoval()
+	if RemoveCharacterEnabled then
+		RemoveAllGameAnimals()
+		ApplyCharacterRemoval()
+	else
+		RestoreLocalCharacter()
+		RestoreAllGameAnimals()
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+	SavedCharAppearance = {}
+	SavedCharRootCFrame = nil
+	SavedCharRootAnchored = nil
+	if RemoveCharacterEnabled then
+		task.defer(function()
+			if RemoveCharacterEnabled then
+				ApplyCharacterRemoval()
+			end
+		end)
+	end
+end)
+
+local function IsCameraLockShouldBeActive()
+	return AutoThrowEnabled and RemoveCharacterEnabled
+end
+
+local function ComputeThrowFrontLockCFrame(cam)
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local zonePos = nil
+
+	if CachedThrowCFrame then
+		zonePos = CachedThrowCFrame.Position
+	elseif SavedCharRootCFrame then
+		zonePos = SavedCharRootCFrame.Position
+	elseif hrp then
+		zonePos = hrp.Position
+	elseif cam then
+		zonePos = cam.CFrame.Position
+	end
+
+	if not zonePos then
+		return nil
+	end
+
+	local dir = GetCorridorDirection(cam)
+	local camPos = zonePos - (dir * LOCK_BACK_DIST) + Vector3.new(0, LOCK_CAM_HEIGHT, 0)
+	local lookTarget = zonePos + (dir * LOCK_LOOK_DIST) + Vector3.new(0, LOCK_FOCUS_HEIGHT, 0)
+	return CFrame.lookAt(camPos, lookTarget)
+end
+
+local function NeutralizeBlackoutFrame(frameObj, vp)
+	if not IsCameraLockShouldBeActive() or not frameObj or not frameObj.Parent or frameObj:IsDescendantOf(ScreenGui) then
+		return
+	end
+	if not frameObj:IsA("GuiObject") or not frameObj.Visible then
+		return
+	end
+	local bigEnough = (frameObj.Size.X.Scale >= 0.85 or frameObj.AbsoluteSize.X >= (vp.X * 0.8))
+		and (frameObj.Size.Y.Scale >= 0.85 or frameObj.AbsoluteSize.Y >= (vp.Y * 0.8))
+	if not bigEnough then
+		return
+	end
+	local isFullScreenOverlay = false
+	if frameObj:IsA("Frame") or frameObj:IsA("ImageLabel") or frameObj:IsA("TextLabel") then
+		local c = frameObj.BackgroundColor3
+		local isDark = (c.R <= 0.12 and c.G <= 0.12 and c.B <= 0.12)
+		local nameLower = frameObj.Name:lower()
+		local blackoutNamed = nameLower:find("black", 1, true)
+			or nameLower:find("fade", 1, true)
+			or nameLower:find("transition", 1, true)
+			or nameLower:find("loading", 1, true)
+			or nameLower:find("blur", 1, true)
+			or nameLower:find("overlay", 1, true)
+			or nameLower:find("vignette", 1, true)
+			or nameLower:find("flash", 1, true)
+		local hasLowTransp = (frameObj.BackgroundTransparency < 0.75)
+			or (frameObj:IsA("ImageLabel") and frameObj.ImageTransparency < 0.75 and frameObj.Image ~= "")
+		if hasLowTransp and (isDark or blackoutNamed) then
+			isFullScreenOverlay = true
+		end
+	end
+	if isFullScreenOverlay then
+		if HiddenBlackoutGuis[frameObj] == nil then
+			HiddenBlackoutGuis[frameObj] = {
+				Visible = frameObj.Visible,
+				BackgroundTransparency = frameObj.BackgroundTransparency,
+				ImageTransparency = frameObj:IsA("ImageLabel") and frameObj.ImageTransparency or nil,
+			}
+		end
+		frameObj.BackgroundTransparency = 1
+		if frameObj:IsA("ImageLabel") then
+			frameObj.ImageTransparency = 1
+		end
+		frameObj.Visible = false
+	end
+end
+
+local function PreventBlackScreenOverlays(force)
+	if not IsCameraLockShouldBeActive() then
+		return
+	end
+	local now = os.clock()
+	if not force and (now - LastBlackoutScan) < 0.75 then
+		return
+	end
+	LastBlackoutScan = now
+
+	local cam = workspace.CurrentCamera
+	local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		for _, desc in ipairs(pg:GetDescendants()) do
+			if desc:IsA("GuiObject") and not desc:IsDescendantOf(ScreenGui) then
+				NeutralizeBlackoutFrame(desc, vp)
+			end
+		end
+	end
+end
+
+local function AttachBlackoutWatcher()
+	for _, conn in ipairs(BlackoutWatchConns) do
+		pcall(function()
+			conn:Disconnect()
+		end)
+	end
+	BlackoutWatchConns = {}
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		table.insert(BlackoutWatchConns, pg.DescendantAdded:Connect(function(desc)
+			if IsCameraLockShouldBeActive() and desc:IsA("GuiObject") and not desc:IsDescendantOf(ScreenGui) then
+				local cam = workspace.CurrentCamera
+				local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+				NeutralizeBlackoutFrame(desc, vp)
+			end
+		end))
+	end
+end
+
+local function RestoreBlackScreenOverlays()
+	for _, conn in ipairs(BlackoutWatchConns) do
+		pcall(function()
+			conn:Disconnect()
+		end)
+	end
+	BlackoutWatchConns = {}
+	for guiObj, prev in pairs(HiddenBlackoutGuis) do
+		if guiObj and guiObj.Parent then
+			pcall(function()
+				guiObj.BackgroundTransparency = prev.BackgroundTransparency
+				if prev.ImageTransparency ~= nil and guiObj:IsA("ImageLabel") then
+					guiObj.ImageTransparency = prev.ImageTransparency
+				end
+				guiObj.Visible = prev.Visible
+			end)
+		end
+	end
+	HiddenBlackoutGuis = {}
+end
+
+local function ClearCameraWatchers()
+	for _, conn in ipairs(CameraWatchConns) do
+		pcall(function()
+			conn:Disconnect()
+		end)
+	end
+	CameraWatchConns = {}
+end
+
+local function EnforceLockedCamera()
+	if not IsCameraLockShouldBeActive() then
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+	if not LockedCameraCFrame then
+		LockedCameraCFrame = ComputeThrowFrontLockCFrame(cam)
+	end
+	if not LockedCameraCFrame then
+		return
+	end
+	if not LockedCameraFOV or LockedCameraFOV <= 1 then
+		LockedCameraFOV = (cam.FieldOfView > 1) and cam.FieldOfView or 70
+	end
+	if cam.CameraType ~= Enum.CameraType.Scriptable then
+		cam.CameraType = Enum.CameraType.Scriptable
+	end
+	if cam.FieldOfView ~= LockedCameraFOV then
+		cam.FieldOfView = LockedCameraFOV
+	end
+	cam.CFrame = LockedCameraCFrame
+	cam.Focus = LockedCameraCFrame
+end
+
+local function AttachCameraWatchers(cam)
+	ClearCameraWatchers()
+	if not cam then
+		return
+	end
+	table.insert(CameraWatchConns, cam:GetPropertyChangedSignal("CameraType"):Connect(function()
+		if IsCameraLockShouldBeActive() and cam.CameraType ~= Enum.CameraType.Scriptable then
+			cam.CameraType = Enum.CameraType.Scriptable
+			if LockedCameraCFrame then
+				cam.CFrame = LockedCameraCFrame
+				cam.Focus = LockedCameraCFrame
+			end
+		end
+	end))
+	table.insert(CameraWatchConns, cam:GetPropertyChangedSignal("CFrame"):Connect(function()
+		if IsCameraLockShouldBeActive() and LockedCameraCFrame and cam.CFrame ~= LockedCameraCFrame then
+			cam.CameraType = Enum.CameraType.Scriptable
+			cam.CFrame = LockedCameraCFrame
+			cam.Focus = LockedCameraCFrame
+		end
+	end))
+	table.insert(CameraWatchConns, cam:GetPropertyChangedSignal("FieldOfView"):Connect(function()
+		if IsCameraLockShouldBeActive() and LockedCameraFOV and cam.FieldOfView ~= LockedCameraFOV then
+			cam.FieldOfView = LockedCameraFOV
+		end
+	end))
+	table.insert(CameraWatchConns, workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		if IsCameraLockShouldBeActive() then
+			local newCam = workspace.CurrentCamera
+			if newCam then
+				newCam.CameraType = Enum.CameraType.Scriptable
+				if LockedCameraFOV then
+					newCam.FieldOfView = LockedCameraFOV
+				end
+				if LockedCameraCFrame then
+					newCam.CFrame = LockedCameraCFrame
+					newCam.Focus = LockedCameraCFrame
+				end
+				AttachCameraWatchers(newCam)
+			end
+		end
+	end))
+end
+
+local function RestoreCameraLock()
+	LockedCameraCFrame = nil
+	LockedCameraFOV = nil
+	LastBlackoutScan = 0
+	ClearCameraWatchers()
+	RestoreBlackScreenOverlays()
+	if CameraLockBound then
+		CameraLockBound = false
+		pcall(function()
+			RunService:UnbindFromRenderStep(CAMERA_BIND_NAME)
+		end)
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		pcall(function()
+			cam.CameraType = Enum.CameraType.Custom
+			local char = LocalPlayer.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hum then
+				cam.CameraSubject = hum
+			end
+		end)
+	end
+end
+
+local function CaptureCameraLock()
+	if not IsCameraLockShouldBeActive() then
+		RestoreCameraLock()
+		return
+	end
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+	if not CORRIDOR_DIR then
+		CORRIDOR_DIR = GetCorridorDirection(cam)
+	end
+	LockedCameraCFrame = ComputeThrowFrontLockCFrame(cam)
+	if not LockedCameraCFrame then
+		local pos = cam.CFrame.Position
+		LockedCameraCFrame = CFrame.lookAt(pos, pos + GetCorridorDirection(cam))
+	end
+	LockedCameraFOV = (cam.FieldOfView > 1) and cam.FieldOfView or 70
+	cam.CameraType = Enum.CameraType.Scriptable
+	cam.FieldOfView = LockedCameraFOV
+	cam.CFrame = LockedCameraCFrame
+	cam.Focus = LockedCameraCFrame
+	AttachCameraWatchers(cam)
+	AttachBlackoutWatcher()
+	PreventBlackScreenOverlays(true)
+	if not CameraLockBound then
+		CameraLockBound = true
+		RunService:BindToRenderStep(CAMERA_BIND_NAME, Enum.RenderPriority.Last.Value + 50, EnforceLockedCamera)
+	end
+end
+
+local function SyncCameraLockState()
+	if IsCameraLockShouldBeActive() then
+		CaptureCameraLock()
+	else
+		RestoreCameraLock()
+	end
+end
+
 CloseBtn.MouseButton1Click:Connect(function()
+	AutoThrowEnabled = false
+	RemoveCharacterEnabled = false
+	SyncCharacterAndAnimalRemoval()
+	RestoreCameraLock()
 	ScreenGui:Destroy()
 end)
 
@@ -564,12 +1256,15 @@ FramScroll.BackgroundTransparency = 1
 FramScroll.BorderSizePixel = 0
 FramScroll.ScrollBarThickness = 4
 FramScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 130, 180)
-FramScroll.CanvasSize = UDim2.new(0, 0, 0, 240)
+FramScroll.CanvasSize = UDim2.new(0, 0, 0, 260)
 FramScroll.Parent = FramePage
 
-local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText, innerToggleTitle, descriptionText, yPos, rotOffset, onToggleChanged)
-	local HEADER_HEIGHT = 45
-	local EXPANDED_HEIGHT = 114
+local AUTO_THROW_EXPANDED_HEIGHT = 166
+local DEFAULT_EXPANDED_HEIGHT = 114
+local HEADER_HEIGHT = 45
+
+local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText, innerToggleTitle, descriptionText, yPos, rotOffset, onToggleChanged, extraExpandedHeight)
+	local expandedH = extraExpandedHeight or DEFAULT_EXPANDED_HEIGHT
 
 	local Holder = Instance.new("Frame")
 	Holder.Name = namePrefix .. "Holder"
@@ -627,9 +1322,10 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 	ArrowCorner.CornerRadius = UDim.new(0, 6)
 	ArrowCorner.Parent = ArrowIndicator
 
+	local contentH = expandedH - HEADER_HEIGHT - 10
 	local DropdownContent = Instance.new("Frame")
 	DropdownContent.Name = "DropdownContent"
-	DropdownContent.Size = UDim2.new(1, -20, 0, 58)
+	DropdownContent.Size = UDim2.new(1, -20, 0, contentH)
 	DropdownContent.Position = UDim2.new(0, 10, 0, HEADER_HEIGHT + 4)
 	DropdownContent.BackgroundColor3 = Color3.fromRGB(20, 18, 27)
 	DropdownContent.BorderSizePixel = 0
@@ -647,7 +1343,7 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 
 	local ToggleRow = Instance.new("Frame")
 	ToggleRow.Name = "ToggleRow"
-	ToggleRow.Size = UDim2.new(1, 0, 0, 34)
+	ToggleRow.Size = UDim2.new(1, 0, 0, 31)
 	ToggleRow.Position = UDim2.new(0, 0, 0, 0)
 	ToggleRow.BackgroundTransparency = 1
 	ToggleRow.Parent = DropdownContent
@@ -673,15 +1369,15 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 
 	local DescLbl = Instance.new("TextLabel")
 	DescLbl.Name = "DescriptionLabel"
-	DescLbl.Size = UDim2.new(1, -16, 0, 22)
-	DescLbl.Position = UDim2.new(0, 10, 0, 34)
+	DescLbl.Size = UDim2.new(1, -16, 0, 15)
+	DescLbl.Position = UDim2.new(0, 10, 0, 28)
 	DescLbl.BackgroundTransparency = 1
 	DescLbl.Text = descriptionText
 	DescLbl.TextColor3 = Color3.fromRGB(185, 185, 208)
 	DescLbl.Font = Enum.Font.GothamMedium
-	DescLbl.TextSize = 11
+	DescLbl.TextSize = 10
 	DescLbl.TextXAlignment = Enum.TextXAlignment.Left
-	DescLbl.TextWrapped = true
+	DescLbl.TextTruncate = Enum.TextTruncate.AtEnd
 	DescLbl.Parent = DropdownContent
 
 	local isOpen = false
@@ -691,7 +1387,7 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 		isOpen = openState
 		DropdownContent.Visible = isOpen
 		ArrowIndicator.Text = isOpen and "^" or "v"
-		local targetH = isOpen and EXPANDED_HEIGHT or HEADER_HEIGHT
+		local targetH = isOpen and expandedH or HEADER_HEIGHT
 		TweenService:Create(Holder, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = UDim2.new(1, -16, 0, targetH),
 		}):Play()
@@ -706,7 +1402,9 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 
 	return {
 		Holder = Holder,
+		Content = DropdownContent,
 		Switch = InnerSwitch,
+		ExpandedHeight = expandedH,
 		SetOpen = SetOpen,
 		IsOpen = function()
 			return isOpen
@@ -720,17 +1418,23 @@ local function CreateFeatureDropdownWithInnerToggle(namePrefix, headerTitleText,
 	}
 end
 
-local AutoThrowEnabled = false
-local CachedThrowCFrame = nil
+local SkipAnimationEnabled = false
 local CachedZonePrompts = {}
+local CachedThrowPrompts = {}
+local CachedAllPrompts = {}
 local CachedLuckLabels = {}
-local CachedSkipLabels = {}
+local WatchedSkipLabels = {}
+local HookedSkipObjects = {}
 local LastLuckRescan = 0
+local LastSkipSeedScan = 0
+local LastPromptCacheScan = 0
 
 local IsTriggerBusy = false
 local LastTriggerTime = 0
-local TRIGGER_COOLDOWN = 0.08
-local PROMPT_CLICK_DELAY = 0.0009
+local LastReflexSkipTime = 0
+local TRIGGER_COOLDOWN = 0.09
+local REFLEX_SKIP_COOLDOWN = 0.06
+local PROMPT_CLICK_DELAY = 0.0005
 local TargetNumbers = { [19] = true, [20] = true }
 
 local CurrentRunTarget = nil
@@ -739,7 +1443,7 @@ local NextRunPickTime = 0
 local Auto2xPullUpEnabled = false
 local Is2xBusy = false
 local Last2xClaimTime = 0
-local CLAIM_2X_COOLDOWN = 0.15
+local CLAIM_2X_COOLDOWN = 0.16
 local Cached2xGuis = {}
 local Cached2xPrompts = {}
 local CachedStopPullUpGuis = {}
@@ -749,12 +1453,16 @@ local function StopAutoThrowCompletely()
 	AutoThrowEnabled = false
 	IsTriggerBusy = false
 	LastTriggerTime = 0
+	LastReflexSkipTime = 0
 	CachedThrowCFrame = nil
 	CachedZonePrompts = {}
+	CachedThrowPrompts = {}
+	CachedAllPrompts = {}
 	CachedLuckLabels = {}
-	CachedSkipLabels = {}
+	WatchedSkipLabels = {}
 	CurrentRunTarget = nil
 	NextRunPickTime = 0
+	SyncCameraLockState()
 	local char = LocalPlayer.Character
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -786,44 +1494,13 @@ local AutoThrowSection = CreateFeatureDropdownWithInnerToggle(
 		if isEnabled then
 			StopAutoThrowCompletely()
 			AutoThrowEnabled = true
+			SyncCameraLockState()
 		else
 			StopAutoThrowCompletely()
 		end
-	end
+	end,
+	AUTO_THROW_EXPANDED_HEIGHT
 )
-
-local AutoTap2xPullUpSection = CreateFeatureDropdownWithInnerToggle(
-	"AutoTap2xPullUp",
-	"AUTO TAP 2X PULL-UP",
-	"AUTO TAP 2X PULL-UP",
-	"This feature will automatically clamp 2x pull-ups.",
-	65,
-	90,
-	function(isEnabled)
-		if isEnabled then
-			StopAutoTap2xCompletely()
-			Auto2xPullUpEnabled = true
-		else
-			StopAutoTap2xCompletely()
-		end
-	end
-)
-
-local function RecalculateFramLayout()
-	local baseTop = 12
-	local gap = 8
-	local h1 = AutoThrowSection.IsOpen() and 114 or 45
-	AutoThrowSection.Holder.Position = UDim2.new(0, 8, 0, baseTop)
-
-	local nextY = baseTop + h1 + gap
-	AutoTap2xPullUpSection.Holder.Position = UDim2.new(0, 8, 0, nextY)
-
-	local h2 = AutoTap2xPullUpSection.IsOpen() and 114 or 45
-	FramScroll.CanvasSize = UDim2.new(0, 0, 0, nextY + h2 + 16)
-end
-
-AutoThrowSection.SetOnLayoutRecalculate(RecalculateFramLayout)
-AutoTap2xPullUpSection.SetOnLayoutRecalculate(RecalculateFramLayout)
 
 local function SilentBackgroundClick(x, y)
 	if not AutoThrowEnabled and not Auto2xPullUpEnabled then
@@ -849,13 +1526,6 @@ local function IsGuiActuallyVisible(guiObj)
 	return true
 end
 
-local function IsSkipText(txt)
-	local lowerTxt = tostring(txt or ""):lower()
-	return lowerTxt:find("melewak", 1, true) ~= nil
-		or lowerTxt:find("melewat", 1, true) ~= nil
-		or lowerTxt:find("melanjut", 1, true) ~= nil
-end
-
 local function HidePromptVisual(prompt)
 	if not prompt or not prompt.Parent then
 		return
@@ -865,6 +1535,384 @@ local function HidePromptVisual(prompt)
 		prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, 18)
 	end)
 end
+
+local function GetPromptWorldPos(prompt)
+	if not prompt or not prompt.Parent then
+		return nil
+	end
+	local p = prompt.Parent
+	if p:IsA("BasePart") then
+		return p.Position
+	elseif p:IsA("Model") then
+		return p:GetPivot().Position
+	elseif p:IsA("Attachment") then
+		return p.WorldPosition
+	end
+	return nil
+end
+
+local function IsThrowProximityPrompt(prompt)
+	if not prompt or not prompt:IsA("ProximityPrompt") then
+		return false
+	end
+	local meta = (tostring(prompt.Name) .. " " .. tostring(prompt.ActionText) .. " " .. tostring(prompt.ObjectText)):lower()
+	if meta:find("pull", 1, true) or meta:find("2x", 1, true) or meta:find("x2", 1, true) then
+		return false
+	end
+	if meta:find("throw", 1, true)
+		or meta:find("lempar", 1, true)
+		or meta:find("klik", 1, true)
+		or meta:find("click", 1, true)
+		or meta:find("start", 1, true)
+		or meta:find("launch", 1, true) then
+		return true
+	end
+	return false
+end
+
+local function RefreshPromptCacheLight(force)
+	local now = os.clock()
+	if not force and (now - LastPromptCacheScan) < 2.0 then
+		return
+	end
+	LastPromptCacheScan = now
+
+	local allList = {}
+	local throwList = {}
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("ProximityPrompt") then
+			table.insert(allList, obj)
+			if IsThrowProximityPrompt(obj) then
+				table.insert(throwList, obj)
+			end
+		end
+	end
+	CachedAllPrompts = allList
+	CachedThrowPrompts = throwList
+end
+
+local function FireSinglePrompt(prompt)
+	if not prompt or not prompt.Parent or not prompt.Enabled then
+		return false
+	end
+	HidePromptVisual(prompt)
+	local ok = pcall(function()
+		if fireproximityprompt then
+			fireproximityprompt(prompt)
+		else
+			prompt:InputHoldBegin()
+			task.wait(PROMPT_CLICK_DELAY)
+			prompt:InputHoldEnd()
+		end
+	end)
+	return ok
+end
+
+local function FireThrowProximityPrompts(hrp, zoneCFrame)
+	if not AutoThrowEnabled then
+		return false
+	end
+
+	for i = #CachedZonePrompts, 1, -1 do
+		local item = CachedZonePrompts[i]
+		local prompt = item and item.prompt
+		if not prompt or not prompt.Parent then
+			table.remove(CachedZonePrompts, i)
+		elseif prompt.Enabled then
+			local pos = GetPromptWorldPos(prompt) or item.pos
+			local nearOk = true
+			if hrp and pos then
+				nearOk = ((pos - hrp.Position).Magnitude <= 22)
+			end
+			if nearOk and FireSinglePrompt(prompt) then
+				return true
+			end
+		end
+	end
+
+	for i = #CachedThrowPrompts, 1, -1 do
+		local pr = CachedThrowPrompts[i]
+		if not pr or not pr.Parent then
+			table.remove(CachedThrowPrompts, i)
+		elseif pr.Enabled then
+			local pos = GetPromptWorldPos(pr)
+			local nearOk = true
+			if hrp and pos then
+				nearOk = ((pos - hrp.Position).Magnitude <= 24)
+			elseif zoneCFrame and pos then
+				nearOk = ((pos - zoneCFrame.Position).Magnitude <= 24)
+			end
+			if nearOk and FireSinglePrompt(pr) then
+				return true
+			end
+		end
+	end
+
+	for i = #CachedAllPrompts, 1, -1 do
+		local pr = CachedAllPrompts[i]
+		if not pr or not pr.Parent then
+			table.remove(CachedAllPrompts, i)
+		elseif pr.Enabled and not IsThrowProximityPrompt(pr) then
+			local meta = (tostring(pr.Name) .. " " .. tostring(pr.ActionText) .. " " .. tostring(pr.ObjectText)):lower()
+			if not (meta:find("pull", 1, true) or meta:find("2x", 1, true)) then
+				local pos = GetPromptWorldPos(pr)
+				if hrp and pos and (pos - hrp.Position).Magnitude <= 14 then
+					if FireSinglePrompt(pr) then
+						return true
+					end
+				end
+			end
+		end
+	end
+
+	return false
+end
+
+local function ResolveClickableGui(obj)
+	if not obj then
+		return nil
+	end
+	if obj:IsA("GuiButton") then
+		return obj
+	end
+	if obj:IsA("GuiObject") then
+		if obj.Parent and obj.Parent:IsA("GuiButton") then
+			return obj.Parent
+		end
+		for _, child in ipairs(obj:GetChildren()) do
+			if child:IsA("GuiButton") then
+				return child
+			end
+		end
+	end
+	return obj
+end
+
+local function GetSkipPhase(txt)
+	local lowerTxt = tostring(txt or ""):lower()
+	if lowerTxt == "" then
+		return 0
+	end
+	if lowerTxt:find("melanjut", 1, true) ~= nil or lowerTxt:find("continue", 1, true) ~= nil then
+		return 2
+	end
+	if lowerTxt:find("melewak", 1, true) ~= nil
+		or lowerTxt:find("melewat", 1, true) ~= nil
+		or lowerTxt:find("skip", 1, true) ~= nil then
+		return 1
+	end
+	return 0
+end
+
+local function FireGuiButtonConnections(btn)
+	if not btn or not btn:IsA("GuiButton") then
+		return
+	end
+	pcall(function()
+		for _, conn in ipairs(getconnections(btn.MouseButton1Click)) do
+			conn:Fire()
+		end
+	end)
+	pcall(function()
+		for _, conn in ipairs(getconnections(btn.Activated)) do
+			conn:Fire()
+		end
+	end)
+end
+
+local function FireSkipReflexNow(skipGui)
+	if not AutoThrowEnabled or not SkipAnimationEnabled then
+		return
+	end
+
+	local now = os.clock()
+	if (now - LastReflexSkipTime) < REFLEX_SKIP_COOLDOWN then
+		return
+	end
+	LastReflexSkipTime = now
+	LastTriggerTime = now
+
+	RefreshPromptCacheLight(false)
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	FireThrowProximityPrompts(hrp, CachedThrowCFrame)
+
+	local x, y = nil, nil
+	if skipGui and skipGui:IsA("GuiObject") and skipGui.AbsoluteSize.X > 0 and skipGui.AbsoluteSize.Y > 0 then
+		x = skipGui.AbsolutePosition.X + (skipGui.AbsoluteSize.X * 0.5)
+		y = skipGui.AbsolutePosition.Y + (skipGui.AbsoluteSize.Y * 0.5)
+		local btn = ResolveClickableGui(skipGui)
+		FireGuiButtonConnections(btn)
+		if skipGui.Parent and skipGui.Parent:IsA("GuiButton") then
+			FireGuiButtonConnections(skipGui.Parent)
+		end
+	end
+
+	local cam = workspace.CurrentCamera
+	if cam then
+		local clickX = x or (cam.ViewportSize.X * 0.5)
+		local clickY = y or (cam.ViewportSize.Y * 0.5)
+		SilentBackgroundClick(clickX, clickY)
+	end
+end
+
+local function RegisterSkipCandidate(obj)
+	if not obj or HookedSkipObjects[obj] then
+		return
+	end
+	if not (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then
+		return
+	end
+	if obj.Name == "Title" or obj:IsDescendantOf(ScreenGui) then
+		return
+	end
+
+	HookedSkipObjects[obj] = true
+
+	local function EvaluateObj(triggerImmediately)
+		if not obj.Parent then
+			return
+		end
+		if GetSkipPhase(obj.Text) > 0 then
+			if not table.find(WatchedSkipLabels, obj) then
+				table.insert(WatchedSkipLabels, obj)
+			end
+			if triggerImmediately and AutoThrowEnabled and SkipAnimationEnabled and IsGuiActuallyVisible(obj) then
+				FireSkipReflexNow(obj)
+			end
+		end
+	end
+
+	EvaluateObj(true)
+	pcall(function()
+		obj:GetPropertyChangedSignal("Text"):Connect(function()
+			EvaluateObj(true)
+		end)
+		obj:GetPropertyChangedSignal("Visible"):Connect(function()
+			EvaluateObj(true)
+		end)
+	end)
+end
+
+local function SeedSkipWatchlist(force)
+	local now = os.clock()
+	if not force and (now - LastSkipSeedScan) < 1.5 then
+		return
+	end
+	LastSkipSeedScan = now
+
+	local roots = {}
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		table.insert(roots, pg)
+	end
+	pcall(function()
+		if CoreGui then
+			table.insert(roots, CoreGui)
+		end
+	end)
+
+	for _, root in ipairs(roots) do
+		pcall(function()
+			for _, desc in ipairs(root:GetDescendants()) do
+				RegisterSkipCandidate(desc)
+			end
+		end)
+	end
+end
+
+local function HookGuiRoots()
+	local function AttachRoot(root)
+		if not root then
+			return
+		end
+		pcall(function()
+			root.DescendantAdded:Connect(function(desc)
+				RegisterSkipCandidate(desc)
+			end)
+		end)
+	end
+
+	local pg = LocalPlayer:FindFirstChild("PlayerGui")
+	if pg then
+		AttachRoot(pg)
+	end
+	LocalPlayer.ChildAdded:Connect(function(child)
+		if child.Name == "PlayerGui" then
+			AttachRoot(child)
+		end
+	end)
+	pcall(function()
+		if CoreGui then
+			AttachRoot(CoreGui)
+		end
+	end)
+end
+
+HookGuiRoots()
+
+CreateCheckboxRow(
+	AutoThrowSection.Content,
+	46,
+	"Skip Animation",
+	function(isChecked)
+		SkipAnimationEnabled = isChecked
+		LastReflexSkipTime = 0
+		if isChecked then
+			SeedSkipWatchlist(true)
+			RefreshPromptCacheLight(true)
+		end
+	end
+)
+
+CreateCheckboxRow(
+	AutoThrowSection.Content,
+	75,
+	"Remove Character",
+	function(isChecked)
+		RemoveCharacterEnabled = isChecked
+		SyncCharacterAndAnimalRemoval()
+		SyncCameraLockState()
+		if not isChecked and not AutoThrowEnabled then
+			CurrentRunTarget = nil
+			NextRunPickTime = 0
+		end
+	end
+)
+
+local AutoTap2xPullUpSection = CreateFeatureDropdownWithInnerToggle(
+	"AutoTap2xPullUp",
+	"AUTO TAP 2X PULL-UP",
+	"AUTO TAP 2X PULL-UP",
+	"This feature will automatically clamp 2x pull-ups.",
+	65,
+	90,
+	function(isEnabled)
+		if isEnabled then
+			StopAutoTap2xCompletely()
+			Auto2xPullUpEnabled = true
+		else
+			StopAutoTap2xCompletely()
+		end
+	end,
+	DEFAULT_EXPANDED_HEIGHT
+)
+
+local function RecalculateFramLayout()
+	local baseTop = 12
+	local gap = 8
+	local h1 = AutoThrowSection.IsOpen() and AutoThrowSection.ExpandedHeight or HEADER_HEIGHT
+	AutoThrowSection.Holder.Position = UDim2.new(0, 8, 0, baseTop)
+
+	local nextY = baseTop + h1 + gap
+	AutoTap2xPullUpSection.Holder.Position = UDim2.new(0, 8, 0, nextY)
+
+	local h2 = AutoTap2xPullUpSection.IsOpen() and AutoTap2xPullUpSection.ExpandedHeight or HEADER_HEIGHT
+	FramScroll.CanvasSize = UDim2.new(0, 0, 0, nextY + h2 + 16)
+end
+
+AutoThrowSection.SetOnLayoutRecalculate(RecalculateFramLayout)
+AutoTap2xPullUpSection.SetOnLayoutRecalculate(RecalculateFramLayout)
 
 local function Is2xCandidateNameOrText(str)
 	local s = tostring(str or ""):lower()
@@ -888,26 +1936,6 @@ local function IsStopPullUpText(str)
 		or s:find("batal", 1, true) ~= nil
 		or s:find("keluar", 1, true) ~= nil
 		or s:find("exit", 1, true) ~= nil
-end
-
-local function ResolveClickableGui(obj)
-	if not obj then
-		return nil
-	end
-	if obj:IsA("GuiButton") then
-		return obj
-	end
-	if obj:IsA("GuiObject") then
-		if obj.Parent and obj.Parent:IsA("GuiButton") then
-			return obj.Parent
-		end
-		for _, child in ipairs(obj:GetChildren()) do
-			if child:IsA("GuiButton") then
-				return child
-			end
-		end
-	end
-	return obj
 end
 
 local function Refresh2xCache(hrp)
@@ -962,13 +1990,7 @@ local function Refresh2xCache(hrp)
 			if Is2xCandidateNameOrText(meta) or meta:find("pull", 1, true) then
 				local validNear = true
 				if hrp then
-					local p = obj.Parent
-					local pos = nil
-					if p and p:IsA("BasePart") then
-						pos = p.Position
-					elseif p and p:IsA("Model") then
-						pos = p:GetPivot().Position
-					end
+					local pos = GetPromptWorldPos(obj)
 					if pos and (pos - hrp.Position).Magnitude > 25 then
 						validNear = false
 					end
@@ -1060,16 +2082,7 @@ local function Trigger2xWithProximity(targetGui, targetPrompt)
 		return
 	end
 	if targetPrompt and targetPrompt.Parent and targetPrompt.Enabled then
-		HidePromptVisual(targetPrompt)
-		pcall(function()
-			if fireproximityprompt then
-				fireproximityprompt(targetPrompt)
-			else
-				targetPrompt:InputHoldBegin()
-				task.wait(PROMPT_CLICK_DELAY)
-				targetPrompt:InputHoldEnd()
-			end
-		end)
+		FireSinglePrompt(targetPrompt)
 	end
 
 	if not Auto2xPullUpEnabled then
@@ -1081,16 +2094,7 @@ local function Trigger2xWithProximity(targetGui, targetPrompt)
 		local cy = targetGui.AbsolutePosition.Y + (targetGui.AbsoluteSize.Y * 0.5)
 
 		if targetGui:IsA("GuiButton") then
-			pcall(function()
-				for _, conn in ipairs(getconnections(targetGui.MouseButton1Click)) do
-					conn:Fire()
-				end
-			end)
-			pcall(function()
-				for _, conn in ipairs(getconnections(targetGui.Activated)) do
-					conn:Fire()
-				end
-			end)
+			FireGuiButtonConnections(targetGui)
 		end
 
 		SilentBackgroundClick(cx, cy)
@@ -1108,6 +2112,7 @@ local function BuildWorldCache(hrp)
 	local candidateParts = {}
 	local namedZones = {}
 	local prompts = {}
+	local throwPrompts = {}
 
 	for _, obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("BasePart") and obj.Anchored then
@@ -1124,8 +2129,15 @@ local function BuildWorldCache(hrp)
 			end
 		elseif obj:IsA("ProximityPrompt") then
 			table.insert(prompts, obj)
+			if IsThrowProximityPrompt(obj) then
+				table.insert(throwPrompts, obj)
+			end
 		end
 	end
+
+	CachedAllPrompts = prompts
+	CachedThrowPrompts = throwPrompts
+	LastPromptCacheScan = os.clock()
 
 	local foundCFrame = nil
 	if #namedZones > 0 then
@@ -1175,16 +2187,10 @@ local function BuildWorldCache(hrp)
 	local filteredPrompts = {}
 	if foundCFrame then
 		for _, prompt in ipairs(prompts) do
-			local p = prompt.Parent
-			local pos = nil
-			if p and p:IsA("BasePart") then
-				pos = p.Position
-			elseif p and p:IsA("Model") then
-				pos = p:GetPivot().Position
-			end
+			local pos = GetPromptWorldPos(prompt)
 			if pos then
 				local distZone = Vector2.new(pos.X - foundCFrame.Position.X, pos.Z - foundCFrame.Position.Z).Magnitude
-				if distZone <= 18 then
+				if distZone <= 20 and not (tostring(prompt.Name):lower():find("pull", 1, true)) then
 					HidePromptVisual(prompt)
 					table.insert(filteredPrompts, { prompt = prompt, pos = pos })
 				end
@@ -1194,6 +2200,11 @@ local function BuildWorldCache(hrp)
 
 	CachedThrowCFrame = foundCFrame
 	CachedZonePrompts = filteredPrompts
+
+	if IsCameraLockShouldBeActive() and CachedThrowCFrame then
+		LockedCameraCFrame = ComputeThrowFrontLockCFrame(workspace.CurrentCamera)
+		EnforceLockedCamera()
+	end
 end
 
 local function RefreshLuckLabelsCache()
@@ -1201,7 +2212,6 @@ local function RefreshLuckLabelsCache()
 		return
 	end
 	local labels = {}
-	local skipLabels = {}
 	local roots = {}
 
 	local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -1217,14 +2227,12 @@ local function RefreshLuckLabelsCache()
 	for _, root in ipairs(roots) do
 		local okScan = pcall(function()
 			for _, desc in ipairs(root:GetDescendants()) do
+				RegisterSkipCandidate(desc)
 				if desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("TextBox") then
 					if desc.Name ~= "Title" and not desc:IsDescendantOf(ScreenGui) then
 						local txt = tostring(desc.Text or "")
 						if txt:find("%+") then
 							table.insert(labels, desc)
-						end
-						if IsSkipText(txt) then
-							table.insert(skipLabels, desc)
 						end
 					end
 				end
@@ -1236,29 +2244,33 @@ local function RefreshLuckLabelsCache()
 	end
 
 	CachedLuckLabels = labels
-	CachedSkipLabels = skipLabels
 	LastLuckRescan = os.clock()
 end
 
-local function DetectSkipPromptText()
-	if not AutoThrowEnabled then
+local function DetectSkipPromptTextFast()
+	if not AutoThrowEnabled or not SkipAnimationEnabled then
 		return nil
 	end
-	local now = os.clock()
-	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
-		RefreshLuckLabelsCache()
-	end
 
-	for i = #CachedSkipLabels, 1, -1 do
-		local lbl = CachedSkipLabels[i]
+	SeedSkipWatchlist(false)
+
+	local phase1Fallback = nil
+	for i = #WatchedSkipLabels, 1, -1 do
+		local lbl = WatchedSkipLabels[i]
 		if not lbl or not lbl.Parent then
-			table.remove(CachedSkipLabels, i)
-		elseif IsGuiActuallyVisible(lbl) and IsSkipText(lbl.Text) then
-			return lbl
+			table.remove(WatchedSkipLabels, i)
+		else
+			local phase = GetSkipPhase(lbl.Text)
+			if phase > 0 and IsGuiActuallyVisible(lbl) then
+				if phase == 2 then
+					return lbl
+				end
+				phase1Fallback = phase1Fallback or lbl
+			end
 		end
 	end
 
-	return nil
+	return phase1Fallback
 end
 
 local function DetectPlusThrowNumber()
@@ -1266,7 +2278,7 @@ local function DetectPlusThrowNumber()
 		return nil
 	end
 	local now = os.clock()
-	if (#CachedLuckLabels == 0 and #CachedSkipLabels == 0) or (now - LastLuckRescan) >= 1.5 then
+	if #CachedLuckLabels == 0 or (now - LastLuckRescan) >= 1.5 then
 		RefreshLuckLabelsCache()
 	end
 
@@ -1310,115 +2322,12 @@ local function TeleportToZone(hrp, zoneCFrame)
 	return IsInThrowZone(hrp, zoneCFrame)
 end
 
-local function TriggerProximityOnce(hrp, skipGui)
-	if not AutoThrowEnabled then
-		return
-	end
-	local firedAny = false
-	for _, item in ipairs(CachedZonePrompts) do
-		local prompt = item.prompt
-		if prompt and prompt.Parent and prompt.Enabled then
-			HidePromptVisual(prompt)
-			pcall(function()
-				if fireproximityprompt then
-					fireproximityprompt(prompt)
-					firedAny = true
-				else
-					prompt:InputHoldBegin()
-					task.wait(PROMPT_CLICK_DELAY)
-					prompt:InputHoldEnd()
-					firedAny = true
-				end
-			end)
-			if firedAny then
-				break
-			end
-		end
-	end
-
-	if not AutoThrowEnabled then
-		return
-	end
-
-	if not firedAny and hrp then
-		for _, obj in ipairs(workspace:GetDescendants()) do
-			if obj:IsA("ProximityPrompt") and obj.Enabled then
-				local p = obj.Parent
-				local pos = nil
-				if p and p:IsA("BasePart") then
-					pos = p.Position
-				elseif p and p:IsA("Model") then
-					pos = p:GetPivot().Position
-				end
-				if pos and (pos - hrp.Position).Magnitude <= 50 then
-					HidePromptVisual(obj)
-					pcall(function()
-						if fireproximityprompt then
-							fireproximityprompt(obj)
-							firedAny = true
-						else
-							obj:InputHoldBegin()
-							task.wait(PROMPT_CLICK_DELAY)
-							obj:InputHoldEnd()
-							firedAny = true
-						end
-					end)
-					if firedAny then
-						break
-					end
-				end
-			end
-		end
-	end
-
-	if not AutoThrowEnabled then
-		return
-	end
-
-	local x, y = nil, nil
-	if skipGui and skipGui:IsA("GuiObject") and skipGui.AbsoluteSize.X > 0 and skipGui.AbsoluteSize.Y > 0 then
-		x = skipGui.AbsolutePosition.X + (skipGui.AbsoluteSize.X * 0.5)
-		y = skipGui.AbsolutePosition.Y + (skipGui.AbsoluteSize.Y * 0.5)
-		if skipGui:IsA("TextButton") or skipGui:IsA("ImageButton") then
-			pcall(function()
-				for _, conn in ipairs(getconnections(skipGui.MouseButton1Click)) do
-					conn:Fire()
-				end
-			end)
-		end
-	end
-
-	local cam = workspace.CurrentCamera
-	if cam then
-		x = x or (cam.ViewportSize.X * 0.5)
-		y = y or (cam.ViewportSize.Y * 0.5)
-		SilentBackgroundClick(x, y)
-	end
-end
-
 local function FireThrowNow(hrp, zoneCFrame, allowPrompt)
 	if not AutoThrowEnabled then
 		return
 	end
-	if allowPrompt and zoneCFrame and IsInThrowZone(hrp, zoneCFrame) then
-		for _, item in ipairs(CachedZonePrompts) do
-			local prompt = item.prompt
-			local pos = item.pos
-			if prompt and prompt.Parent and prompt.Enabled and pos then
-				if (pos - hrp.Position).Magnitude <= 16 then
-					HidePromptVisual(prompt)
-					pcall(function()
-						if fireproximityprompt then
-							fireproximityprompt(prompt)
-						else
-							prompt:InputHoldBegin()
-							prompt:InputHoldEnd()
-						end
-					end)
-					break
-				end
-			end
-		end
+	if allowPrompt then
+		FireThrowProximityPrompts(hrp, zoneCFrame)
 	end
 
 	if not AutoThrowEnabled then
@@ -1465,6 +2374,10 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 
+	if IsCameraLockShouldBeActive() then
+		PreventBlackScreenOverlays(false)
+	end
+
 	if not AutoThrowEnabled and not Auto2xPullUpEnabled then
 		return
 	end
@@ -1495,31 +2408,26 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 
-	if not AutoThrowEnabled or IsTriggerBusy then
+	if not AutoThrowEnabled then
 		return
 	end
 
-	if (now - LastTriggerTime) < TRIGGER_COOLDOWN then
+	if SkipAnimationEnabled and not IsTriggerBusy and (now - LastReflexSkipTime) >= REFLEX_SKIP_COOLDOWN then
+		local skipGui = DetectSkipPromptTextFast()
+		if skipGui then
+			IsTriggerBusy = true
+			FireSkipReflexNow(skipGui)
+			IsTriggerBusy = false
+			return
+		end
+	end
+
+	if IsTriggerBusy or (now - LastTriggerTime) < TRIGGER_COOLDOWN then
 		return
 	end
 
 	if not CachedThrowCFrame then
 		BuildWorldCache(hrp)
-	end
-
-	local skipGui = DetectSkipPromptText()
-	if skipGui then
-		IsTriggerBusy = true
-		LastTriggerTime = now
-
-		task.spawn(function()
-			if AutoThrowEnabled then
-				TriggerProximityOnce(hrp, skipGui)
-			end
-			task.wait(0.12)
-			IsTriggerBusy = false
-		end)
-		return
 	end
 
 	local detected = DetectPlusThrowNumber()
@@ -1535,7 +2443,7 @@ RunService.Heartbeat:Connect(function()
 				end
 				FireThrowNow(hrp, CachedThrowCFrame, inZone)
 			end
-			task.wait(0.08)
+			task.wait(0.06)
 			IsTriggerBusy = false
 		end)
 	end
