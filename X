@@ -334,7 +334,7 @@ local BlackoutWatchConns = {}
 local LastBlackoutScan = 0
 local CachedThrowCFrame = nil
 
--- Penyimpanan sementara hewan di game & karakter saat Remove Character ON
+-- Penyimpanan sementara hewan di game & karakter saat Hapus Karakter ON
 local HiddenAnimalsFolder = Instance.new("Folder")
 HiddenAnimalsFolder.Name = "LpzyxHiddenAnimalsCache"
 HiddenAnimalsFolder.Parent = workspace:FindFirstChildOfClass("Camera") or workspace
@@ -346,7 +346,7 @@ local SavedCharRootAnchored = nil
 local AnimalWatcherConn = nil
 local CharWatcherConns = {}
 
--- Arah masuk ke lorong sesuai Foto 2 (jika nil, otomatis ambil arah kamera saat lock diaktifkan)
+-- Arah masuk ke lorong sesuai Foto 2 (jika nihil, otomatis ambil arah kamera saat lock diaktifkan)
 local CORRIDOR_DIR = nil
 local LOCK_CAM_HEIGHT = 5.5
 local LOCK_BACK_DIST = 9.0
@@ -379,6 +379,9 @@ local function IsPlayerCharacterModel(inst)
 	end
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr.Character == inst then
+			return true
+		end
+		if plr.Name ~= "" and inst.Name:lower():find(plr.Name:lower(), 1, true) then
 			return true
 		end
 	end
@@ -529,6 +532,7 @@ local function HideLocalCharacterVisuals(char)
 	end
 end
 
+-- Fix: tidak lagi menggeser HRP ke -18 stud agar tidak memicu bug no-clip / jatuh ke bawah
 local function ParkLocalCharacterOutOfView(char)
 	if not char then
 		return
@@ -542,7 +546,6 @@ local function ParkLocalCharacterOutOfView(char)
 		pcall(function()
 			hrp.AssemblyLinearVelocity = Vector3.zero
 			hrp.AssemblyAngularVelocity = Vector3.zero
-			hrp.CFrame = hrp.CFrame * CFrame.new(0, -18, 0)
 		end)
 	end
 end
@@ -594,11 +597,10 @@ local function RestoreLocalCharacter()
 
 	if char then
 		local hrp = char:FindFirstChild("HumanoidRootPart")
-		if hrp and hrp:IsA("BasePart") and SavedCharRootCFrame then
+		if hrp and hrp:IsA("BasePart") then
 			pcall(function()
 				hrp.AssemblyLinearVelocity = Vector3.zero
 				hrp.AssemblyAngularVelocity = Vector3.zero
-				hrp.CFrame = SavedCharRootCFrame
 				if SavedCharRootAnchored ~= nil then
 					hrp.Anchored = SavedCharRootAnchored
 				end
@@ -623,9 +625,11 @@ LocalPlayer.CharacterAdded:Connect(function()
 	SavedCharAppearance = {}
 	SavedCharRootCFrame = nil
 	SavedCharRootAnchored = nil
+	RemovedAnimalRecords = {}
 	if RemoveCharacterEnabled then
 		task.defer(function()
 			if RemoveCharacterEnabled then
+				RemoveAllGameAnimals()
 				ApplyCharacterRemoval()
 			end
 		end)
@@ -1101,7 +1105,7 @@ HeaderTag.Name = "HeaderTag"
 HeaderTag.Size = UDim2.new(1, -148, 0, 13)
 HeaderTag.Position = UDim2.new(0, 78, 0, 15)
 HeaderTag.BackgroundTransparency = 1
-HeaderTag.Text = "PROFILE"
+HeaderTag.Text = "PROFIL"
 HeaderTag.TextColor3 = Color3.fromRGB(145, 145, 168)
 HeaderTag.Font = Enum.Font.GothamBold
 HeaderTag.TextSize = 9
@@ -1219,8 +1223,8 @@ local function AddMergedDetailRow(yPos, labelStr, valueStr, accentColor, showSep
 end
 
 AddMergedDetailRow(0, "Username", tostring(LocalPlayer.Name), Color3.fromRGB(75, 225, 255), true)
-AddMergedDetailRow(36, "Account Created", createdDateStr, Color3.fromRGB(255, 180, 70), true)
-local DeviceClockVal = AddMergedDetailRow(72, "Calendar / Clock", os.date("%H:%M:%S • %d/%m/%Y"), Color3.fromRGB(220, 95, 255), false)
+AddMergedDetailRow(36, "Akun Dibuat", createdDateStr, Color3.fromRGB(255, 180, 70), true)
+local DeviceClockVal = AddMergedDetailRow(72, "Kalender / Jam", os.date("%H:%M:%S • %d/%m/%Y"), Color3.fromRGB(220, 95, 255), false)
 
 local SessionStart = os.clock()
 local ProfileFooterLbl = Instance.new("TextLabel")
@@ -1246,7 +1250,7 @@ task.spawn(function()
 	end
 end)
 
-local FramePage = TabFrames["FRAM"]
+local FramPage = TabFrames["FRAM"]
 
 local FramScroll = Instance.new("ScrollingFrame")
 FramScroll.Name = "FramScroll"
@@ -1257,7 +1261,7 @@ FramScroll.BorderSizePixel = 0
 FramScroll.ScrollBarThickness = 4
 FramScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 130, 180)
 FramScroll.CanvasSize = UDim2.new(0, 0, 0, 260)
-FramScroll.Parent = FramePage
+FramScroll.Parent = FramPage
 
 local AUTO_THROW_EXPANDED_HEIGHT = 166
 local DEFAULT_EXPANDED_HEIGHT = 114
@@ -1485,9 +1489,9 @@ end
 
 local AutoThrowSection = CreateFeatureDropdownWithInnerToggle(
 	"AutoThrow",
-	"AUTO THROW",
-	"AUTO THROW",
-	"This feature automatically throws food.",
+	"LEMPAR OTOMATIS",
+	"LEMPAR OTOMATIS",
+	"Fitur ini secara otomatis melemparkan makanan.",
 	12,
 	30,
 	function(isEnabled)
@@ -1639,7 +1643,8 @@ local function FireThrowProximityPrompts(hrp, zoneCFrame)
 			local nearOk = true
 			if hrp and pos then
 				nearOk = ((pos - hrp.Position).Magnitude <= 24)
-			elseif zoneCFrame and pos then
+			end
+			if zoneCFrame and pos then
 				nearOk = ((pos - zoneCFrame.Position).Magnitude <= 24)
 			end
 			if nearOk and FireSinglePrompt(pr) then
@@ -1854,7 +1859,7 @@ HookGuiRoots()
 CreateCheckboxRow(
 	AutoThrowSection.Content,
 	46,
-	"Skip Animation",
+	"Lewati Animasi",
 	function(isChecked)
 		SkipAnimationEnabled = isChecked
 		LastReflexSkipTime = 0
@@ -1868,7 +1873,7 @@ CreateCheckboxRow(
 CreateCheckboxRow(
 	AutoThrowSection.Content,
 	75,
-	"Remove Character",
+	"Hapus Karakter",
 	function(isChecked)
 		RemoveCharacterEnabled = isChecked
 		SyncCharacterAndAnimalRemoval()
@@ -1884,7 +1889,7 @@ local AutoTap2xPullUpSection = CreateFeatureDropdownWithInnerToggle(
 	"AutoTap2xPullUp",
 	"AUTO TAP 2X PULL-UP",
 	"AUTO TAP 2X PULL-UP",
-	"This feature will automatically clamp 2x pull-ups.",
+	"Fitur ini akan secara otomatis mengunci 2x pull-up.",
 	65,
 	90,
 	function(isEnabled)
