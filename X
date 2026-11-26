@@ -346,12 +346,12 @@ local SavedCharRootAnchored = nil
 local AnimalWatcherConn = nil
 local CharWatcherConns = {}
 
--- Arah masuk ke lorong sesuai Foto 2 (jika nihil, otomatis ambil arah kamera saat lock diaktifkan)
+-- Arah masuk ke lorong sesuai layar (jika nihil, otomatis ambil arah kamera saat lock diaktifkan)
 local CORRIDOR_DIR = nil
-local LOCK_CAM_HEIGHT = 5.5
-local LOCK_BACK_DIST = 9.0
-local LOCK_LOOK_DIST = 28.0
-local LOCK_FOCUS_HEIGHT = 1.6
+local LOCK_CAM_HEIGHT = 4.2
+local LOCK_BACK_DIST = 6.5
+local LOCK_LOOK_DIST = 34.0
+local LOCK_FOCUS_HEIGHT = 1.2
 
 local function GetCorridorDirection(cam)
 	if CORRIDOR_DIR and CORRIDOR_DIR.Magnitude > 0.01 then
@@ -685,6 +685,7 @@ local function IsCameraLockShouldBeActive()
 	return AutoThrowEnabled and RemoveCharacterEnabled
 end
 
+-- Posisi & arah kamera diatur menyusuri lorong lurus dari dekat garis depan seperti layar target
 local function ComputeThrowFrontLockCFrame(cam)
 	local char = LocalPlayer.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -705,8 +706,9 @@ local function ComputeThrowFrontLockCFrame(cam)
 	end
 
 	local dir = GetCorridorDirection(cam)
-	local camPos = zonePos - (dir * LOCK_BACK_DIST) + Vector3.new(0, LOCK_CAM_HEIGHT, 0)
-	local lookTarget = zonePos + (dir * LOCK_LOOK_DIST) + Vector3.new(0, LOCK_FOCUS_HEIGHT, 0)
+	local baseY = zonePos.Y - 2.0
+	local camPos = Vector3.new(zonePos.X, baseY, zonePos.Z) - (dir * LOCK_BACK_DIST) + Vector3.new(0, LOCK_CAM_HEIGHT, 0)
+	local lookTarget = Vector3.new(zonePos.X, baseY, zonePos.Z) + (dir * LOCK_LOOK_DIST) + Vector3.new(0, LOCK_FOCUS_HEIGHT, 0)
 	return CFrame.lookAt(camPos, lookTarget)
 end
 
