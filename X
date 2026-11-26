@@ -381,7 +381,34 @@ local function IsPlayerCharacterModel(inst)
 		if plr.Character == inst then
 			return true
 		end
-		if plr.Name ~= "" and inst.Name:lower():find(plr.Name:lower(), 1, true) then
+	end
+	return false
+end
+
+local function IsDummyOrNpcModel(model)
+	if not model or not model:IsA("Model") then
+		return false
+	end
+	if model == HiddenAnimalsFolder or model:IsDescendantOf(HiddenAnimalsFolder) then
+		return false
+	end
+	if IsPlayerCharacterModel(model) then
+		return false
+	end
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+	if hum and hrp then
+		local n = model.Name:lower()
+		if n:find("dummy", 1, true)
+			or n:find("clone", 1, true)
+			or n:find("tiruan", 1, true)
+			or n:find("npc", 1, true)
+			or n:find("bot", 1, true)
+			or n:find("rig", 1, true)
+			or n:find("mannequin", 1, true)
+			or model:GetAttribute("Dummy") == true
+			or model:GetAttribute("IsDummy") == true
+			or model:GetAttribute("Clone") == true then
 			return true
 		end
 	end
@@ -395,11 +422,8 @@ local function IsAnimalCandidateModel(model)
 	if model == HiddenAnimalsFolder or model:IsDescendantOf(HiddenAnimalsFolder) then
 		return false
 	end
-	if IsPlayerCharacterModel(model) then
+	if IsPlayerCharacterModel(model) or IsDummyOrNpcModel(model) then
 		return false
-	end
-	if model:FindFirstChildOfClass("Humanoid") then
-		return true
 	end
 	local n = model.Name:lower()
 	if n:find("pet", 1, true)
@@ -479,11 +503,11 @@ local function ClearCharWatchers()
 	CharWatcherConns = {}
 end
 
-local function HideLocalCharacterVisuals(char)
-	if not char then
+local function HideModelVisualOnly(targetModel)
+	if not targetModel then
 		return
 	end
-	for _, desc in ipairs(char:GetDescendants()) do
+	for _, desc in ipairs(targetModel:GetDescendants()) do
 		if desc:IsA("BasePart") or desc:IsA("Decal") or desc:IsA("Texture") then
 			if SavedCharAppearance[desc] == nil then
 				SavedCharAppearance[desc] = {
@@ -517,7 +541,7 @@ local function HideLocalCharacterVisuals(char)
 			end)
 		end
 	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
+	local hum = targetModel:FindFirstChildOfClass("Humanoid")
 	if hum then
 		if SavedCharAppearance[hum] == nil then
 			SavedCharAppearance[hum] = {
@@ -532,7 +556,19 @@ local function HideLocalCharacterVisuals(char)
 	end
 end
 
--- Fix: tidak lagi menggeser HRP ke -18 stud agar tidak memicu bug no-clip / jatuh ke bawah
+local function HideLocalCharacterVisuals(char)
+	if not char then
+		return
+	end
+	HideModelVisualOnly(char)
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and IsDummyOrNpcModel(obj) then
+			HideModelVisualOnly(obj)
+		end
+	end
+end
+
+-- Fix: tidak menggeser HRP ke -18 stud agar tidak memicu bug no-clip / jatuh ke bawah
 local function ParkLocalCharacterOutOfView(char)
 	if not char then
 		return
@@ -563,7 +599,16 @@ local function ApplyCharacterRemoval()
 		if RemoveCharacterEnabled then
 			task.defer(function()
 				if RemoveCharacterEnabled and LocalPlayer.Character == char then
-					HideLocalCharacterVisuals(char)
+					HideModelVisualOnly(char)
+				end
+			end)
+		end
+	end))
+	table.insert(CharWatcherConns, workspace.DescendantAdded:Connect(function(desc)
+		if RemoveCharacterEnabled and desc:IsA("Model") and IsDummyOrNpcModel(desc) then
+			task.defer(function()
+				if RemoveCharacterEnabled then
+					HideModelVisualOnly(desc)
 				end
 			end)
 		end
